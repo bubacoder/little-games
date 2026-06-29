@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Snake</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: linear-gradient(135deg, #0a0a1a 0%, #0d1a0d 50%, #1a0a1a 100%);
+      background-attachment: fixed;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: 'Press Start 2P', monospace;
+      color: #39ff14;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      letter-spacing: 0.2em;
+      text-shadow: 0 0 10px #39ff14, 0 0 30px #39ff14, 0 0 60px #39ff1455;
+      margin-bottom: 14px;
+    }
+
+    #hud {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 12px;
+      font-size: 0.55rem;
+      letter-spacing: 0.08em;
+      min-height: 1.4em;
+    }
+
+    #hud span { text-shadow: 0 0 6px #39ff14; }
+
+    #timer-wrap { color: #ffdd00; text-shadow: 0 0 8px #ffdd00; }
+    #timer-wrap.urgent { color: #ff4444; text-shadow: 0 0 10px #ff4444; animation: pulse-red 0.5s infinite alternate; }
+    @keyframes pulse-red { from { opacity: 1; } to { opacity: 0.5; } }
+
+    canvas {
+      border: 2px solid #39ff14;
+      box-shadow: 0 0 20px #39ff14, 0 0 60px rgba(57,255,20,0.2);
+      display: block;
+      image-rendering: pixelated;
+    }
+
+    /* ── Overlay ── */
+    #overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      pointer-events: none;
+      background: rgba(0,0,0,0.55);
+      border-radius: 0;
+    }
+
+    #overlay.hidden { display: none; }
+
+    #overlay h2 {
+      font-size: 1.3rem;
+      letter-spacing: 0.12em;
+      text-shadow: 0 0 16px #39ff14, 0 0 40px #39ff14;
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    #overlay p {
+      font-size: 0.48rem;
+      opacity: 0.8;
+      letter-spacing: 0.08em;
+      text-align: center;
+      line-height: 2;
+    }
+
+    /* mode buttons */
+    .mode-btn {
+      display: none;
+      padding: 12px 20px;
+      background: transparent;
+      border: 2px solid currentColor;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.5rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      pointer-events: all;
+      transition: background 0.15s, box-shadow 0.15s;
+      width: 200px;
+      text-align: center;
+    }
+
+    #btn-classic  { color: #39ff14; box-shadow: 0 0 8px #39ff14; }
+    #btn-classic:hover  { background: rgba(57,255,20,0.15);  box-shadow: 0 0 18px #39ff14; }
+
+    #btn-timeattack { color: #ffdd00; box-shadow: 0 0 8px #ffdd00; }
+    #btn-timeattack:hover { background: rgba(255,221,0,0.15); box-shadow: 0 0 18px #ffdd00; }
+
+    .mode-btn.visible { display: inline-block; }
+
+    #restart-btn {
+      display: none;
+      padding: 10px 24px;
+      background: transparent;
+      border: 2px solid #39ff14;
+      color: #39ff14;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.5rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      pointer-events: all;
+      box-shadow: 0 0 8px #39ff14;
+      transition: background 0.15s, box-shadow 0.15s;
+    }
+    #restart-btn:hover { background: rgba(57,255,20,0.15); box-shadow: 0 0 20px #39ff14; }
+    #restart-btn.visible { display: inline-block; }
+
+    #menu-btn {
+      display: none;
+      padding: 8px 18px;
+      background: transparent;
+      border: 2px solid rgba(57,255,20,0.4);
+      color: rgba(57,255,20,0.6);
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.42rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      pointer-events: all;
+      transition: all 0.15s;
+    }
+    #menu-btn:hover { color: #39ff14; border-color: #39ff14; box-shadow: 0 0 10px #39ff14; }
+    #menu-btn.visible { display: inline-block; }
+  </style>
+</head>
+<body>
+  <h1>Snake</h1>
+  <div id="hud">
+    <span>SCORE: <b id="score">0</b></span>
+    <span>BEST: <b id="highscore">0</b></span>
+    <span id="timer-wrap" style="display:none">TIME: <b id="timer">60</b></span>
+  </div>
+
+  <div style="position:relative;">
+    <canvas id="canvas"></canvas>
+    <div id="overlay">
+      <h2 id="overlay-title">SNAKE</h2>
+      <p  id="overlay-msg"></p>
+      <button id="btn-classic"    class="mode-btn" onclick="startMode('classic')">CLASSIC</button>
+      <button id="btn-timeattack" class="mode-btn" onclick="startMode('timeattack')">TIME ATTACK</button>
+      <button id="restart-btn"    onclick="startMode(gameMode)">PLAY AGAIN</button>
+      <button id="menu-btn"       onclick="showMenu()">MENU</button>
+    </div>
+  </div>
+
+  <script>
+    // ── Config ────────────────────────────────────────────────
+    const COLS         = 30;
+    const ROWS         = 30;
+    const CELL         = 20;
+    const SPEED_INIT   = 120;
+    const SPEED_MIN    = 55;
+    const SPEED_STEP   = 4;
+    const TIME_LIMIT   = 60;    // seconds for Time Attack
+
+    // ── DOM ───────────────────────────────────────────────────
+    const canvas        = document.getElementById('canvas');
+    const ctx           = canvas.getContext('2d');
+    const scoreEl       = document.getElementById('score');
+    const hiEl          = document.getElementById('highscore');
+    const overlay       = document.getElementById('overlay');
+    const oTitle        = document.getElementById('overlay-title');
+    const oMsg          = document.getElementById('overlay-msg');
+    const timerWrap     = document.getElementById('timer-wrap');
+    const timerEl       = document.getElementById('timer');
+    const btnClassic    = document.getElementById('btn-classic');
+    const btnTimeAttack = document.getElementById('btn-timeattack');
+    const restartBtn    = document.getElementById('restart-btn');
+    const menuBtn       = document.getElementById('menu-btn');
+
+    canvas.width  = COLS * CELL;
+    canvas.height = ROWS * CELL;
+
+    // ── Audio ─────────────────────────────────────────────────
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function resumeAudio() { if (audioCtx.state === 'suspended') audioCtx.resume(); }
+
+    function playEat() {
+      const t = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(440, t);
+      osc.frequency.exponentialRampToValueAtTime(880, t + 0.06);
+      gain.gain.setValueAtTime(0.18, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      osc.start(t); osc.stop(t + 0.12);
+    }
+
+    function playDie() {
+      const t = audioCtx.currentTime;
+      [0, 0.1, 0.2].forEach((offset, i) => {
+        const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.type = 'sawtooth';
+        const freq = 300 - i * 80;
+        osc.frequency.setValueAtTime(freq, t + offset);
+        osc.frequency.exponentialRampToValueAtTime(freq * 0.4, t + offset + 0.09);
+        gain.gain.setValueAtTime(0.15, t + offset);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + offset + 0.09);
+        osc.start(t + offset); osc.stop(t + offset + 0.09);
+      });
+    }
+
+    function playTimeUp() {
+      const t = audioCtx.currentTime;
+      // Triumphant arpeggio for Time Attack end
+      [0, 0.12, 0.24, 0.36].forEach((offset, i) => {
+        const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.type = 'square';
+        const freqs = [523, 659, 784, 1047];
+        osc.frequency.setValueAtTime(freqs[i], t + offset);
+        gain.gain.setValueAtTime(0.14, t + offset);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + offset + 0.1);
+        osc.start(t + offset); osc.stop(t + offset + 0.1);
+      });
+    }
+
+    function playTickBeep() {
+      const t = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, t);
+      gain.gain.setValueAtTime(0.1, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+      osc.start(t); osc.stop(t + 0.05);
+    }
+
+    function playMove() {
+      const t = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(220, t);
+      gain.gain.setValueAtTime(0.04, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+      osc.start(t); osc.stop(t + 0.03);
+    }
+
+    // ── Particles ─────────────────────────────────────────────
+    let particles = [];
+
+    function spawnParticles(cx, cy, color, count = 18) {
+      for (let i = 0; i < count; i++) {
+        const angle = (Math.PI * 2 / count) * i + Math.random() * 0.3;
+        const speed = 1.5 + Math.random() * 3;
+        particles.push({
+          x: cx, y: cy,
+          vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+          life: 1.0, decay: 0.03 + Math.random() * 0.03,
+          size: 2 + Math.random() * 3, color,
+        });
+      }
+    }
+
+    function updateParticles() {
+      particles = particles.filter(p => p.life > 0);
+      particles.forEach(p => {
+        p.x += p.vx; p.y += p.vy;
+        p.vx *= 0.92; p.vy *= 0.92;
+        p.life -= p.decay;
+      });
+    }
+
+    function drawParticles() {
+      particles.forEach(p => {
+        ctx.save();
+        ctx.globalAlpha = p.life;
+        ctx.shadowColor = p.color; ctx.shadowBlur = 8;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+        ctx.restore();
+      });
+    }
+
+    // ── Gradient ──────────────────────────────────────────────
+    let bgGradient = null;
+    function getBgGradient() {
+      if (bgGradient) return bgGradient;
+      bgGradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      bgGradient.addColorStop(0.0, '#0a0a1e');
+      bgGradient.addColorStop(0.5, '#0d180d');
+      bgGradient.addColorStop(1.0, '#180a18');
+      return bgGradient;
+    }
+
+    // Time Attack uses a different tint
+    let bgGradientTA = null;
+    function getBgGradientTA() {
+      if (bgGradientTA) return bgGradientTA;
+      bgGradientTA = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      bgGradientTA.addColorStop(0.0, '#1a1000');
+      bgGradientTA.addColorStop(0.5, '#0d0d0d');
+      bgGradientTA.addColorStop(1.0, '#1a0a00');
+      return bgGradientTA;
+    }
+
+    // ── State ─────────────────────────────────────────────────
+    let snake, dir, nextDir, food, score, interval, animFrame;
+    let gameMode   = 'classic';   // 'classic' | 'timeattack'
+    let state      = 'menu';      // 'menu' | 'running' | 'dead' | 'timeup'
+    let timeLeft   = TIME_LIMIT;
+    let timerInterval = null;
+
+    const hiScores = {
+      classic:    parseInt(localStorage.getItem('snakeHi')   || '0', 10),
+      timeattack: parseInt(localStorage.getItem('snakeHiTA') || '0', 10),
+    };
+
+    function saveHi(mode, val) {
+      hiScores[mode] = val;
+      localStorage.setItem(mode === 'classic' ? 'snakeHi' : 'snakeHiTA', val);
+    }
+
+    // ── UI helpers ────────────────────────────────────────────
+    function hideAllButtons() {
+      [btnClassic, btnTimeAttack, restartBtn, menuBtn].forEach(b => b.classList.remove('visible'));
+    }
+
+    function showMenu() {
+      resumeAudio();
+      state = 'menu';
+      clearInterval(interval);
+      clearInterval(timerInterval);
+      cancelAnimationFrame(animFrame);
+      particles = [];
+      timerWrap.style.display = 'none';
+      timerEl.textContent = TIME_LIMIT;
+      timerWrap.classList.remove('urgent');
+
+      hiEl.textContent = hiScores.classic;
+      scoreEl.textContent = '';
+
+      hideAllButtons();
+      btnClassic.classList.add('visible');
+      btnTimeAttack.classList.add('visible');
+
+      oTitle.textContent = 'SNAKE';
+      oMsg.innerHTML = 'CHOOSE MODE';
+      overlay.classList.remove('hidden');
+      drawIdleGrid();
+    }
+
+    function updateHud() {
+      hiEl.textContent = hiScores[gameMode];
+      scoreEl.textContent = score;
+    }
+
+    // ── Init / start ──────────────────────────────────────────
+    function startMode(mode) {
+      resumeAudio();
+      gameMode = mode;
+      const cx = Math.floor(COLS / 2);
+      const cy = Math.floor(ROWS / 2);
+      snake     = [{ x: cx, y: cy }, { x: cx - 1, y: cy }, { x: cx - 2, y: cy }];
+      dir       = { x: 1, y: 0 };
+      nextDir   = { x: 1, y: 0 };
+      score     = 0;
+      particles = [];
+      food      = spawnFood();
+      state     = 'running';
+
+      // HUD
+      updateHud();
+      if (mode === 'timeattack') {
+        timeLeft = TIME_LIMIT;
+        timerEl.textContent = timeLeft;
+        timerWrap.style.display = 'inline';
+        timerWrap.classList.remove('urgent');
+        clearInterval(timerInterval);
+        timerInterval = setInterval(tickTimer, 1000);
+      } else {
+        timerWrap.style.display = 'none';
+      }
+
+      hideAllButtons();
+      overlay.classList.add('hidden');
+
+      clearInterval(interval);
+      interval = setInterval(tick, SPEED_INIT);
+      cancelAnimationFrame(animFrame);
+      renderLoop();
+    }
+
+    // ── Timer (Time Attack) ───────────────────────────────────
+    function tickTimer() {
+      if (state !== 'running') return;
+      timeLeft--;
+      timerEl.textContent = timeLeft;
+      if (timeLeft <= 10) {
+        timerWrap.classList.add('urgent');
+        playTickBeep();
+      }
+      if (timeLeft <= 0) {
+        clearInterval(timerInterval);
+        endTimeAttack();
+      }
+    }
+
+    // ── Game loop ─────────────────────────────────────────────
+    function rndCell() {
+      return { x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS) };
+    }
+
+    function spawnFood() {
+      let cell;
+      do { cell = rndCell(); }
+      while (snake.some(s => s.x === cell.x && s.y === cell.y));
+      return cell;
+    }
+
+    function tick() {
+      dir = { ...nextDir };
+      const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+
+      if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS) return endGame();
+      if (snake.some(s => s.x === head.x && s.y === head.y))              return endGame();
+
+      snake.unshift(head);
+
+      if (head.x === food.x && head.y === food.y) {
+        score++;
+        if (score > hiScores[gameMode]) saveHi(gameMode, score);
+        updateHud();
+        spawnParticles(food.x * CELL + CELL / 2, food.y * CELL + CELL / 2, '#ff3c78');
+        playEat();
+        food = spawnFood();
+        // Classic speeds up; Time Attack speeds up more aggressively
+        const step = gameMode === 'timeattack' ? SPEED_STEP * 1.5 : SPEED_STEP;
+        const newSpeed = Math.max(SPEED_MIN, SPEED_INIT - score * step);
+        clearInterval(interval);
+        interval = setInterval(tick, newSpeed);
+      } else {
+        snake.pop();
+      }
+    }
+
+    function endGame() {
+      clearInterval(interval);
+      clearInterval(timerInterval);
+      state = 'dead';
+      playDie();
+      snake.forEach(seg => spawnParticles(
+        seg.x * CELL + CELL / 2, seg.y * CELL + CELL / 2, '#ff1e1e', 6
+      ));
+      oTitle.textContent = 'GAME OVER';
+      oMsg.innerHTML = `SCORE: ${score}`;
+      restartBtn.classList.add('visible');
+      menuBtn.classList.add('visible');
+      overlay.classList.remove('hidden');
+    }
+
+    function endTimeAttack() {
+      clearInterval(interval);
+      state = 'timeup';
+      playTimeUp();
+      // Gold particle burst at every food eaten location (center of canvas as celebration)
+      for (let i = 0; i < 5; i++) {
+        spawnParticles(
+          Math.random() * canvas.width, Math.random() * canvas.height,
+          '#ffdd00', 12
+        );
+      }
+      const isNewHi = score >= hiScores.timeattack;
+      oTitle.textContent = "TIME'S UP!";
+      oMsg.innerHTML = `SCORE: ${score}${isNewHi && score > 0 ? '<br>NEW BEST!' : ''}`;
+      restartBtn.classList.add('visible');
+      menuBtn.classList.add('visible');
+      overlay.classList.remove('hidden');
+    }
+
+    // ── Render loop ───────────────────────────────────────────
+    function renderLoop() {
+      updateParticles();
+      draw();
+      if (state === 'running' || state === 'dead' || state === 'timeup' || particles.length > 0) {
+        animFrame = requestAnimationFrame(renderLoop);
+      }
+    }
+
+    // ── Drawing ───────────────────────────────────────────────
+    const NEON     = '#39ff14';
+    const FOOD_CLR = '#ff3c78';
+    const NEON_TA  = '#ffdd00';   // Time Attack snake head tint
+
+    function currentBg() {
+      return gameMode === 'timeattack' ? getBgGradientTA() : getBgGradient();
+    }
+
+    function drawGrid() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = currentBg();
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = 'rgba(57,255,20,0.05)';
+      ctx.lineWidth = 0.5;
+      for (let x = 0; x <= COLS; x++) {
+        ctx.beginPath(); ctx.moveTo(x*CELL, 0); ctx.lineTo(x*CELL, canvas.height); ctx.stroke();
+      }
+      for (let y = 0; y <= ROWS; y++) {
+        ctx.beginPath(); ctx.moveTo(0, y*CELL); ctx.lineTo(canvas.width, y*CELL); ctx.stroke();
+      }
+    }
+
+    function drawCell(x, y, color, glow) {
+      const px = x * CELL + 1, py = y * CELL + 1, sz = CELL - 2;
+      ctx.shadowColor = glow || 'transparent';
+      ctx.shadowBlur  = glow ? 12 : 0;
+      ctx.fillStyle   = color;
+      ctx.beginPath(); ctx.roundRect(px, py, sz, sz, 3); ctx.fill();
+      ctx.shadowBlur  = 0;
+    }
+
+    function draw() {
+      drawGrid();
+      if (!snake) return;
+
+      const headColor = gameMode === 'timeattack' ? NEON_TA : NEON;
+      const headGlow  = headColor;
+
+      snake.forEach((seg, i) => {
+        const isHead = i === 0;
+        const alpha  = Math.max(0.3, 1 - i / snake.length * 0.7);
+        const color  = isHead ? headColor
+          : gameMode === 'timeattack'
+            ? `rgba(255,221,0,${alpha})`
+            : `rgba(57,255,20,${alpha})`;
+        drawCell(seg.x, seg.y, color, isHead ? headGlow : null);
+      });
+
+      // Eyes
+      const head = snake[0];
+      ctx.fillStyle = '#0a0a1e'; ctx.shadowBlur = 0;
+      getEyeOffsets().forEach(([ex, ey]) => {
+        ctx.beginPath();
+        ctx.arc(head.x * CELL + ex, head.y * CELL + ey, 2, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Food
+      const pulse = 10 + 6 * Math.sin(Date.now() / 150);
+      const fx = food.x * CELL + CELL / 2, fy = food.y * CELL + CELL / 2;
+      ctx.shadowColor = FOOD_CLR; ctx.shadowBlur = pulse;
+      ctx.fillStyle = FOOD_CLR;
+      ctx.beginPath(); ctx.arc(fx, fy, CELL / 2 - 3, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+
+      drawParticles();
+
+      if (state === 'dead') {
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        snake.forEach(seg => drawCell(seg.x, seg.y, 'rgba(255,30,30,0.6)', '#ff1e1e'));
+        drawParticles();
+      }
+      if (state === 'timeup') {
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        drawParticles();
+      }
+    }
+
+    function getEyeOffsets() {
+      const c = CELL;
+      if (dir.x === 1)  return [[c*0.7,c*0.3],[c*0.7,c*0.7]];
+      if (dir.x === -1) return [[c*0.3,c*0.3],[c*0.3,c*0.7]];
+      if (dir.y === -1) return [[c*0.3,c*0.3],[c*0.7,c*0.3]];
+      return                   [[c*0.3,c*0.7],[c*0.7,c*0.7]];
+    }
+
+    function drawIdleGrid() {
+      ctx.fillStyle = getBgGradient();
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = 'rgba(57,255,20,0.05)'; ctx.lineWidth = 0.5;
+      for (let x = 0; x <= COLS; x++) {
+        ctx.beginPath(); ctx.moveTo(x*CELL,0); ctx.lineTo(x*CELL,canvas.height); ctx.stroke();
+      }
+      for (let y = 0; y <= ROWS; y++) {
+        ctx.beginPath(); ctx.moveTo(0,y*CELL); ctx.lineTo(canvas.width,y*CELL); ctx.stroke();
+      }
+    }
+
+    // ── Input ─────────────────────────────────────────────────
+    const KEY_MAP = {
+      ArrowUp:    {x:0,y:-1}, ArrowDown: {x:0,y:1},
+      ArrowLeft:  {x:-1,y:0}, ArrowRight:{x:1,y:0},
+      w:{x:0,y:-1}, s:{x:0,y:1}, a:{x:-1,y:0}, d:{x:1,y:0},
+    };
+
+    document.addEventListener('keydown', e => {
+      resumeAudio();
+      if (e.key === ' ' || e.key === 'Enter') {
+        if (state === 'menu') return;          // buttons handle menu
+        if (state !== 'running') startMode(gameMode);
+        return;
+      }
+      if (state !== 'running') return;
+      const newDir = KEY_MAP[e.key];
+      if (!newDir) return;
+      if (newDir.x === -dir.x && newDir.y === -dir.y) return;
+      if (nextDir.x !== newDir.x || nextDir.y !== newDir.y) playMove();
+      nextDir = newDir;
+      e.preventDefault();
+    });
+
+    // ── Boot ─────────────────────────────────────────────────
+    showMenu();
+  </script>
+</body>
+</html>
