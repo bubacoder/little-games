@@ -14,8 +14,9 @@ while lsof -iTCP:"$PORT" -sTCP:LISTEN -t &>/dev/null; do
 done
 
 URL="http://localhost:$PORT"
+SERVE_DIR="$ROOT/src"
 
-echo "Starting server at $URL  (root: $ROOT)"
+echo "Starting server at $URL  (root: $SERVE_DIR)"
 echo "Press Ctrl+C to stop."
 echo ""
 
@@ -36,5 +37,5 @@ open_browser() {
 (sleep 0.6 && open_browser) &
 
 # ── Start server ─────────────────────────────────────────────────────────────
-cd "$ROOT"
+cd "$SERVE_DIR"
 python3 -m http.server "$PORT"
