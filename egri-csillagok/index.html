@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Egri Csillagok – Az 1552-es ostrom</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bor: #6e1423;        /* egri bikavér */
+    --bor-dark:#3d0a14;
+    --arany:#d9a441;       /* korhű arany */
+    --pergamen:#f0e3c8;
+    --ej:#101622;
+    --ko:#7a7468;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{width:100%;height:100%;overflow:hidden;background:var(--ej);
+    font-family:'Crimson Pro',Georgia,'Times New Roman',serif;color:var(--pergamen)}
+  #c{position:fixed;inset:0;display:block;touch-action:none}
+  .hidden{display:none !important}
+
+  /* ---------- Címképernyő ---------- */
+  #title{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:radial-gradient(ellipse at 50% 30%, #2a1020 0%, #14091a 45%, #07050c 100%);z-index:40;text-align:center;padding:24px}
+  #title .csillagok{position:absolute;inset:0;pointer-events:none}
+  #title h1{font-family:'Cinzel',Georgia,serif;font-weight:800;color:var(--arany);
+    font-size:clamp(34px,9vw,76px);letter-spacing:.06em;text-shadow:0 0 24px rgba(217,164,65,.35);line-height:1.05}
+  #title h2{font-family:'Cinzel',Georgia,serif;font-weight:600;color:var(--pergamen);
+    font-size:clamp(14px,3.4vw,22px);letter-spacing:.34em;margin-top:10px;text-transform:uppercase;opacity:.85}
+  #title p{max-width:560px;margin:26px auto 0;font-size:clamp(15px,3.6vw,19px);line-height:1.55;opacity:.92}
+  .gomb{font-family:'Cinzel',Georgia,serif;font-weight:600;letter-spacing:.12em;cursor:pointer;
+    background:linear-gradient(180deg,var(--bor) 0%,var(--bor-dark) 100%);color:var(--pergamen);
+    border:1px solid var(--arany);border-radius:4px;padding:14px 38px;font-size:clamp(15px,3.6vw,19px);
+    margin-top:30px;box-shadow:0 0 0 3px rgba(217,164,65,.12),0 8px 24px rgba(0,0,0,.6);transition:transform .12s}
+  .gomb:active{transform:scale(.96)}
+  .vonal{width:120px;height:1px;background:linear-gradient(90deg,transparent,var(--arany),transparent);margin:22px auto 0}
+
+  /* ---------- HUD ---------- */
+  #hud{position:fixed;inset:0;pointer-events:none;z-index:20}
+  #quest{position:absolute;top:max(10px,env(safe-area-inset-top));left:10px;right:10px;margin:0 auto;max-width:520px;
+    background:rgba(16,12,8,.78);border:1px solid rgba(217,164,65,.55);border-radius:6px;
+    padding:9px 14px;font-size:clamp(14px,3.4vw,17px);line-height:1.35;backdrop-filter:blur(3px)}
+  #quest b{font-family:'Cinzel',serif;color:var(--arany);font-weight:600;font-size:.82em;letter-spacing:.14em;display:block;margin-bottom:2px}
+  #stats{position:absolute;top:max(10px,env(safe-area-inset-top));right:10px;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+  .pill{background:rgba(16,12,8,.78);border:1px solid rgba(217,164,65,.45);border-radius:20px;
+    padding:5px 13px;font-size:clamp(13px,3.2vw,15px)}
+  #hpwrap{position:absolute;left:10px;right:10px;bottom:140px;margin:0 auto;max-width:420px}
+  #hpwrap .cim{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.2em;color:var(--arany);text-align:center;margin-bottom:4px;text-shadow:0 1px 3px #000}
+  #hpbar{height:14px;border:1px solid var(--arany);border-radius:7px;background:rgba(0,0,0,.55);overflow:hidden}
+  #hpfill{height:100%;width:100%;background:linear-gradient(90deg,#8c1d2f,#c9452f);transition:width .3s}
+
+  /* ---------- Párbeszéd ---------- */
+  #dialog{position:fixed;left:50%;transform:translateX(-50%);bottom:max(16px,env(safe-area-inset-bottom));
+    width:min(94vw,640px);background:rgba(20,14,9,.93);border:1px solid var(--arany);border-radius:8px;
+    padding:16px 18px 14px;z-index:30;cursor:pointer;box-shadow:0 12px 40px rgba(0,0,0,.7)}
+  #dlgName{font-family:'Cinzel',serif;color:var(--arany);font-weight:600;letter-spacing:.12em;font-size:clamp(14px,3.4vw,16px);margin-bottom:6px}
+  #dlgText{font-size:clamp(16px,4vw,19px);line-height:1.5}
+  #dlgHint{margin-top:10px;font-size:12px;letter-spacing:.18em;color:rgba(240,227,200,.55);text-align:right;font-family:'Cinzel',serif}
+
+  /* ---------- Felirat / banner ---------- */
+  #banner{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:25;pointer-events:none}
+  #banner span{font-family:'Cinzel',serif;font-weight:800;color:var(--arany);text-shadow:0 0 30px rgba(201,69,47,.8),0 2px 6px #000;
+    font-size:clamp(26px,8vw,58px);letter-spacing:.1em;opacity:0;transition:opacity .4s;text-align:center;padding:0 16px}
+
+  /* ---------- Irányítás ---------- */
+  #joy{position:fixed;left:18px;bottom:max(18px,env(safe-area-inset-bottom));width:124px;height:124px;z-index:22;
+    border-radius:50%;background:rgba(16,12,8,.45);border:1.5px solid rgba(217,164,65,.5);touch-action:none}
+  #knob{position:absolute;left:50%;top:50%;width:54px;height:54px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#e7c275,#a87a26 70%);border:1px solid #f0e3c8;
+    transform:translate(-50%,-50%);box-shadow:0 4px 10px rgba(0,0,0,.5)}
+  #actBtn{position:fixed;right:18px;bottom:max(26px,env(safe-area-inset-bottom));width:96px;height:96px;border-radius:50%;z-index:22;
+    background:radial-gradient(circle at 35% 30%,#a32638,var(--bor-dark) 75%);border:1.5px solid var(--arany);
+    color:var(--pergamen);font-family:'Cinzel',serif;font-weight:600;font-size:13px;letter-spacing:.06em;line-height:1.2;
+    display:flex;align-items:center;justify-content:center;text-align:center;padding:8px;cursor:pointer;user-select:none;touch-action:none;
+    box-shadow:0 6px 18px rgba(0,0,0,.55)}
+  #actBtn:active{transform:scale(.93)}
+  #prompt{position:fixed;left:50%;transform:translateX(-50%);bottom:150px;z-index:21;pointer-events:none;
+    background:rgba(16,12,8,.8);border:1px solid rgba(217,164,65,.5);border-radius:20px;padding:6px 16px;
+    font-size:clamp(13px,3.4vw,16px)}
+  #keyhint{position:fixed;left:18px;bottom:18px;z-index:21;font-size:13px;color:rgba(240,227,200,.5);pointer-events:none}
+
+  /* ---------- Végképernyők ---------- */
+  .vegkep{position:fixed;inset:0;z-index:45;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px}
+  #win{background:radial-gradient(ellipse at 50% 25%, #2b1d3f 0%, #120a20 55%, #060410 100%)}
+  #lose{background:radial-gradient(ellipse at 50% 70%, #3d0a14 0%, #1a060b 55%, #070304 100%)}
+  .vegkep h1{font-family:'Cinzel',serif;font-weight:800;color:var(--arany);font-size:clamp(28px,8vw,60px);letter-spacing:.08em}
+  .vegkep p{max-width:560px;margin-top:20px;font-size:clamp(15px,3.8vw,19px);line-height:1.6;opacity:.92}
+  .vegkep .stat{margin-top:14px;color:var(--arany);font-family:'Cinzel',serif;letter-spacing:.1em;font-size:clamp(14px,3.4vw,17px)}
+
+  @media (hover:hover) and (pointer:fine){
+    #joy,#actBtn{display:none}
+  }
+  @media (hover:none){ #keyhint{display:none} }
+  @media (prefers-reduced-motion:reduce){ *{transition:none !important;animation:none !important} }
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<!-- Címképernyő -->
+<div id="title">
+  <canvas class="csillagok" id="starsCv"></canvas>
+  <h1>EGRI CSILLAGOK</h1>
+  <h2>Az 1552-es ostrom</h2>
+  <div class="vonal"></div>
+  <p>Gárdonyi Géza regénye nyomán. Te vagy <b>Bornemissza Gergely</b>, az egri vár hadnagya.
+  A török sereg a falak alatt áll — segíts Dobó Istvánnak felkészíteni a várat, aztán
+  védd meg Egert a tüzes kerékkel!</p>
+  <button class="gomb" id="startBtn">A VÁRBA ▸</button>
+</div>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div id="quest"><b>FELADAT</b><span id="questText"></span></div>
+  <div id="stats">
+    <div class="pill hidden" id="wavePill">Hullám: <b id="waveNum">1</b>/3</div>
+    <div class="pill hidden" id="killPill">⚔ <b id="killNum">0</b></div>
+  </div>
+  <div id="hpwrap" class="hidden">
+    <div class="cim">A VÁR ÉPSÉGE</div>
+    <div id="hpbar"><div id="hpfill"></div></div>
+  </div>
+</div>
+
+<div id="banner"><span id="bannerText"></span></div>
+<div id="prompt" class="hidden"></div>
+<div id="keyhint" class="hidden">WASD / nyilak – mozgás · E vagy Szóköz – cselekvés · kattintás – tüzes kerék</div>
+
+<!-- Párbeszéd -->
+<div id="dialog" class="hidden">
+  <div id="dlgName"></div>
+  <div id="dlgText"></div>
+  <div id="dlgHint">KOPPINTS A FOLYTATÁSHOZ ▸</div>
+</div>
+
+<!-- Mobil vezérlők -->
+<div id="joy" class="hidden"><div id="knob"></div></div>
+<button id="actBtn" class="hidden">CSELEKVÉS</button>
+
+<!-- Győzelem -->
+<div id="win" class="vegkep hidden">
+  <h1>EGER MEGVÉDVE!</h1>
+  <div class="vonal"></div>
+  <p>1552. október 18. — Harmincnyolc napi ostrom után a török sereg elvonult Eger alól.
+  Kétezer védő állt helyt a sokszoros túlerővel szemben. Dobó István, Bornemissza Gergely,
+  Mekcsey István és az egri nők hősiessége örökre beírta a vár nevét a történelembe.
+  Ők voltak az egri csillagok.</p>
+  <div class="stat" id="winStat"></div>
+  <button class="gomb" onclick="location.reload()">ÚJRA JÁTSZOM</button>
+</div>
+
+<!-- Vereség -->
+<div id="lose" class="vegkep hidden">
+  <h1>A VÁR ELESETT…</h1>
+  <div class="vonal"></div>
+  <p>A falakat áttörte a török. De Eger igazi története másképp szól:
+  a védők kitartottak. Próbáld újra, és írd át a csata sorsát!</p>
+  <button class="gomb" onclick="location.reload()">ÚJRA PRÓBÁLOM</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+/* =====================================================================
+   EGRI CSILLAGOK – WebGL kalandjáték (Three.js r128)
+   1. fázis: a vár bejárása, küldetések (hordók, gyűrű)
+   2. fázis: ostrom – tüzes kerék a török ellen
+===================================================================== */
+
+// ---------- Címképernyő csillagai ----------
+(function(){
+  const cv=document.getElementById('starsCv');
+  const fit=()=>{cv.width=innerWidth;cv.height=innerHeight;};
+  fit(); addEventListener('resize',fit);
+  const ctx=cv.getContext('2d');
+  const stars=Array.from({length:90},()=>({x:Math.random(),y:Math.random()*0.7,r:Math.random()*1.6+0.4,p:Math.random()*Math.PI*2}));
+  (function loop(t){
+    if(document.getElementById('title').classList.contains('hidden'))return;
+    ctx.clearRect(0,0,cv.width,cv.height);
+    for(const s of stars){
+      const a=0.35+0.65*Math.abs(Math.sin(t/900+s.p));
+      ctx.fillStyle=`rgba(240,227,200,${a})`;
+      ctx.beginPath();ctx.arc(s.x*cv.width,s.y*cv.height,s.r,0,7);ctx.fill();
+    }
+    requestAnimationFrame(loop);
+  })(0);
+})();
+
+// ---------- Alap Three.js ----------
+const canvas=document.getElementById('c');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.1,400);
+function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
+resize(); addEventListener('resize',resize);
+
+// Nap és fények
+const hemi=new THREE.HemisphereLight(0xcfe6ff,0x6b5a3e,0.85); scene.add(hemi);
+const sun=new THREE.DirectionalLight(0xfff1d6,1.0); sun.position.set(40,60,30); scene.add(sun);
+
+function setDay(){
+  scene.background=new THREE.Color(0x9ec7e8);
+  scene.fog=new THREE.Fog(0x9ec7e8,90,260);
+  hemi.intensity=0.85; sun.color.set(0xfff1d6); sun.intensity=1.0;
+}
+function setDusk(){
+  scene.background=new THREE.Color(0x3a1f33);
+  scene.fog=new THREE.Fog(0x3a1f33,70,220);
+  hemi.intensity=0.4; sun.color.set(0xff7a45); sun.intensity=0.8; sun.position.set(-30,20,-60);
+}
+setDay();
+
+// ---------- Anyagok ----------
+const M={
+  fu:    new THREE.MeshLambertMaterial({color:0x6f8a4a}),
+  fold:  new THREE.MeshLambertMaterial({color:0x8a7a55}),
+  ko:    new THREE.MeshLambertMaterial({color:0x8d8678}),
+  koS:   new THREE.MeshLambertMaterial({color:0x6f695e}),
+  tetoP: new THREE.MeshLambertMaterial({color:0x8c3b2a}),
+  fa:    new THREE.MeshLambertMaterial({color:0x6b4a2c}),
+  hordó: new THREE.MeshLambertMaterial({color:0x8a5a30}),
+  vas:   new THREE.MeshLambertMaterial({color:0x3a3a3f}),
+  bor:   new THREE.MeshLambertMaterial({color:0x9aa6b8}),
+  tuz:   new THREE.MeshBasicMaterial({color:0xffa033}),
+};
+
+// ---------- Vár megépítése ----------
+const world=new THREE.Group(); scene.add(world);
+
+// Talaj: várudvar + külső mező
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(500,500),M.fold);
+ground.rotation.x=-Math.PI/2; world.add(ground);
+const udvar=new THREE.Mesh(new THREE.PlaneGeometry(64,64),new THREE.MeshLambertMaterial({color:0xa39263}));
+udvar.rotation.x=-Math.PI/2; udvar.position.y=0.02; world.add(udvar);
+const mezo=new THREE.Mesh(new THREE.PlaneGeometry(300,180),M.fu);
+mezo.rotation.x=-Math.PI/2; mezo.position.set(0,0.01,-130); world.add(mezo);
+
+// Falak (négyzet alakú vár, kapu északon: -Z)
+const WALL=30, WH=8, WT=3;
+function fal(w,h,d,x,y,z,mat){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat||M.ko);m.position.set(x,y,z);world.add(m);return m;}
+fal(2*WALL+WT,WH,WT, 0,WH/2, WALL);           // dél
+fal(WT,WH,2*WALL+WT, -WALL,WH/2,0);           // nyugat
+fal(WT,WH,2*WALL+WT,  WALL,WH/2,0);           // kelet
+fal(WALL-6,WH,WT, -(WALL+6)/2-3+1.5,WH/2,-WALL); // észak bal
+fal(WALL-6,WH,WT,  (WALL+6)/2+3-1.5,WH/2,-WALL); // észak jobb
+fal(12,3,WT, 0,WH-1.5,-WALL);                  // kapu fölötti rész
+// pártázat (egyszerű fogazat) az északi falon
+for(let x=-WALL;x<=WALL;x+=4){ fal(2,1.4,1, x, WH+0.7, -WALL-1, M.koS); }
+// gyilokjáró az északi fal tetején
+fal(2*WALL+WT,0.6,5, 0, WH+0.3, -WALL+1, M.koS);
+
+// Saroktornyok
+function torony(x,z){
+  const t=new THREE.Mesh(new THREE.CylinderGeometry(4.4,5,14,10),M.ko);
+  t.position.set(x,7,z); world.add(t);
+  const k=new THREE.Mesh(new THREE.ConeGeometry(5.4,4.5,10),M.tetoP);
+  k.position.set(x,16,z); world.add(k);
+  const zaszloRud=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,4),M.vas);
+  zaszloRud.position.set(x,20,z); world.add(zaszloRud);
+  const zaszlo=new THREE.Mesh(new THREE.PlaneGeometry(2.4,1.2),
+    new THREE.MeshBasicMaterial({color:0xc0392b,side:THREE.DoubleSide}));
+  zaszlo.position.set(x+1.2,21.3,z); world.add(zaszlo);
+}
+torony(-WALL,-WALL);torony(WALL,-WALL);torony(-WALL,WALL);torony(WALL,WALL);
+
+// Kapu
+const kapu=new THREE.Mesh(new THREE.BoxGeometry(11,6.4,0.6),M.fa);
+kapu.position.set(0,3.2,-WALL); world.add(kapu);
+const racs=new THREE.Mesh(new THREE.BoxGeometry(11,6.4,0.2),
+  new THREE.MeshLambertMaterial({color:0x2a2a2e,wireframe:true}));
+racs.position.set(0,3.2,-WALL+0.5); world.add(racs);
+
+// Belső épületek: lakótorony + templom + házak
+function haz(x,z,w,d,h,rot){
+  const g=new THREE.Group();
+  const test=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshLambertMaterial({color:0xcbb98f}));
+  test.position.y=h/2; g.add(test);
+  const teto=new THREE.Mesh(new THREE.ConeGeometry(Math.max(w,d)*0.75,h*0.6,4),M.tetoP);
+  teto.position.y=h+h*0.3; teto.rotation.y=Math.PI/4; g.add(teto);
+  g.position.set(x,0,z); g.rotation.y=rot||0; world.add(g); return g;
+}
+haz(-18,14,10,8,5,0.2);   // lakóépület
+haz(16,16,8,7,4.5,-0.3);  // raktár
+const tor=new THREE.Mesh(new THREE.CylinderGeometry(3,3.4,12,8),M.ko);
+tor.position.set(18,6,-16); world.add(tor);
+const torK=new THREE.Mesh(new THREE.ConeGeometry(3.8,3.5,8),M.tetoP);
+torK.position.set(18,13.7,-16); world.add(torK);
+
+// Külső dombok
+for(let i=0;i<10;i++){
+  const d=new THREE.Mesh(new THREE.SphereGeometry(8+Math.random()*10,8,6),M.fu);
+  const a=Math.random()*Math.PI*2, r=120+Math.random()*80;
+  d.position.set(Math.cos(a)*r,-4,Math.sin(a)*r-60);
+  d.scale.y=0.35; world.add(d);
+}
+// Török tábor a távolban (sátrak)
+for(let i=0;i<14;i++){
+  const s=new THREE.Mesh(new THREE.ConeGeometry(2.5+Math.random()*1.5,3.5,6),
+    new THREE.MeshLambertMaterial({color:i%3?0xd8d2c2:0xa33b3b}));
+  s.position.set(-50+Math.random()*100,1.7,-95-Math.random()*30);
+  world.add(s);
+}
+
+// ---------- Karakterek ----------
+function nevTabla(szoveg,szin){
+  const cv=document.createElement('canvas');cv.width=256;cv.height=64;
+  const c=cv.getContext('2d');
+  c.font='600 30px Cinzel, Georgia, serif';c.textAlign='center';c.textBaseline='middle';
+  c.shadowColor='rgba(0,0,0,.8)';c.shadowBlur=6;
+  c.fillStyle=szin||'#f0e3c8';c.fillText(szoveg,128,32);
+  const tx=new THREE.CanvasTexture(cv);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,transparent:true,depthTest:false}));
+  sp.scale.set(5,1.25,1);return sp;
+}
+function ember(opts){
+  const g=new THREE.Group();
+  const test=new THREE.Mesh(new THREE.BoxGeometry(0.9,1.3,0.5),
+    new THREE.MeshLambertMaterial({color:opts.ruha}));
+  test.position.y=1.15; g.add(test);
+  const fej=new THREE.Mesh(new THREE.SphereGeometry(0.34,10,8),
+    new THREE.MeshLambertMaterial({color:0xe8c39e}));
+  fej.position.y=2.12; g.add(fej);
+  if(opts.turban){
+    const t=new THREE.Mesh(new THREE.SphereGeometry(0.38,10,6),
+      new THREE.MeshLambertMaterial({color:0xf2ead6}));
+    t.position.y=2.3; t.scale.y=0.6; g.add(t);
+  }else{
+    const sapka=new THREE.Mesh(new THREE.ConeGeometry(0.32,0.4,8),
+      new THREE.MeshLambertMaterial({color:opts.sapka||0x333}));
+    sapka.position.y=2.46; g.add(sapka);
+  }
+  const lab=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.6,0.45),
+    new THREE.MeshLambertMaterial({color:opts.nadrag||0x3a2f24}));
+  lab.position.y=0.3; g.add(lab);
+  const karG=new THREE.BoxGeometry(0.22,1.0,0.22);
+  const karM=new THREE.MeshLambertMaterial({color:opts.ruha});
+  const k1=new THREE.Mesh(karG,karM);k1.position.set(-0.62,1.25,0);g.add(k1);
+  const k2=new THREE.Mesh(karG,karM);k2.position.set(0.62,1.25,0);g.add(k2);
+  if(opts.kard){
+    const kard=new THREE.Mesh(new THREE.BoxGeometry(0.08,1.1,0.05),M.bor);
+    kard.position.set(0.7,1.0,0.1);kard.rotation.z=0.25;g.add(kard);
+  }
+  if(opts.nev){const nt=nevTabla(opts.nev,opts.nevSzin);nt.position.y=3.1;g.add(nt);}
+  g.userData.karok=[k1,k2];
+  return g;
+}
+
+// Játékos: Bornemissza Gergely
+const player=ember({ruha:0x1f3a5f,sapka:0x14233a,kard:true});
+player.position.set(0,0,18); world.add(player);
+
+// NPC-k
+const npcs=[
+  {nev:'Dobó István',  szin:'#d9a441', ruha:0x6e1423, pos:[0,0,-20],  rot:Math.PI},
+  {nev:'Éva',          szin:'#f2c9d4', ruha:0x7a4a6e, pos:[-16,0,8],  rot:0.6},
+  {nev:'Mekcsey István',szin:'#cfd8e8',ruha:0x2f4a2f, pos:[14,0,2],   rot:-0.8},
+];
+for(const n of npcs){
+  n.obj=ember({ruha:n.ruha,nev:n.nev,nevSzin:n.szin,kard:n.nev!=='Éva'});
+  n.obj.position.set(...n.pos); n.obj.rotation.y=n.rot; world.add(n.obj);
+}
+
+// Puskaporos hordók
+const hordok=[];
+const hordoPos=[[-22,-12],[22,-8],[-10,22],[8,20],[24,12]];
+for(const [x,z] of hordoPos){
+  const h=new THREE.Group();
+  const test=new THREE.Mesh(new THREE.CylinderGeometry(0.7,0.7,1.1,10),M.hordó);
+  test.position.y=0.55; h.add(test);
+  const abr1=new THREE.Mesh(new THREE.TorusGeometry(0.71,0.05,6,12),M.vas);
+  abr1.rotation.x=Math.PI/2; abr1.position.y=0.3; h.add(abr1);
+  const abr2=abr1.clone(); abr2.position.y=0.85; h.add(abr2);
+  const fenykor=new THREE.Mesh(new THREE.RingGeometry(0.95,1.2,24),
+    new THREE.MeshBasicMaterial({color:0xd9a441,transparent:true,opacity:0.7,side:THREE.DoubleSide}));
+  fenykor.rotation.x=-Math.PI/2; fenykor.position.y=0.06; h.add(fenykor);
+  h.position.set(x,0,z); h.userData.gyuru=fenykor; world.add(h); hordok.push(h);
+}
+
+// ---------- UI hivatkozások ----------
+const UI={
+  title:document.getElementById('title'), hud:document.getElementById('hud'),
+  quest:document.getElementById('questText'), dialog:document.getElementById('dialog'),
+  dlgName:document.getElementById('dlgName'), dlgText:document.getElementById('dlgText'),
+  prompt:document.getElementById('prompt'), banner:document.getElementById('bannerText'),
+  joy:document.getElementById('joy'), knob:document.getElementById('knob'),
+  act:document.getElementById('actBtn'), hpwrap:document.getElementById('hpwrap'),
+  hpfill:document.getElementById('hpfill'), wavePill:document.getElementById('wavePill'),
+  killPill:document.getElementById('killPill'), waveNum:document.getElementById('waveNum'),
+  killNum:document.getElementById('killNum'), keyhint:document.getElementById('keyhint'),
+  win:document.getElementById('win'), lose:document.getElementById('lose'),
+  winStat:document.getElementById('winStat'),
+};
+
+// ---------- Játékállapot ----------
+const G={
+  mode:'title',          // title | explore | dialog | siege | over
+  quest:0,               // 0 Dobóhoz · 1 hordók · 2 Évához · 3 Mekcseyhez · 4 vissza Dobóhoz
+  hordo:0,
+  castleHP:100, wave:0, kills:0,
+  enemies:[], wheels:[], particles:[],
+  toSpawn:0, spawnT:0, betweenT:0, throwCD:0,
+};
+const WAVES=[7,11,15];
+
+function setQuest(t){UI.quest.textContent=t;}
+function banner(t,ms){
+  UI.banner.textContent=t; UI.banner.style.opacity=1;
+  clearTimeout(banner._t);
+  banner._t=setTimeout(()=>UI.banner.style.opacity=0,ms||1800);
+}
+
+// ---------- Párbeszéd ----------
+let dlgQueue=[],dlgDone=null;
+function showDialog(nev,sorok,done){
+  G.mode='dialog'; dlgQueue=sorok.slice(); dlgDone=done||null;
+  UI.dlgName.textContent=nev; UI.dialog.classList.remove('hidden');
+  nextLine();
+}
+function nextLine(){
+  if(dlgQueue.length===0){
+    UI.dialog.classList.add('hidden'); G.mode='explore';
+    if(dlgDone){const f=dlgDone;dlgDone=null;f();}
+    return;
+  }
+  UI.dlgText.textContent=dlgQueue.shift();
+}
+UI.dialog.addEventListener('pointerdown',e=>{e.stopPropagation();nextLine();});
+
+// ---------- Bemenet ----------
+const keys={};
+addEventListener('keydown',e=>{
+  keys[e.code]=true;
+  if(G.mode==='dialog'&&(e.code==='Space'||e.code==='Enter'||e.code==='KeyE')){e.preventDefault();nextLine();return;}
+  if(e.code==='KeyE'||e.code==='Space'){e.preventDefault();action();}
+});
+addEventListener('keyup',e=>keys[e.code]=false);
+
+// Virtuális joystick
+const joyState={active:false,id:null,x:0,y:0};
+function joyMove(t){
+  const r=UI.joy.getBoundingClientRect();
+  const cx=r.left+r.width/2, cy=r.top+r.height/2;
+  let dx=t.clientX-cx, dy=t.clientY-cy;
+  const max=r.width/2-10, len=Math.hypot(dx,dy);
+  if(len>max){dx*=max/len;dy*=max/len;}
+  UI.knob.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  joyState.x=dx/max; joyState.y=dy/max;
+}
+UI.joy.addEventListener('touchstart',e=>{e.preventDefault();joyState.active=true;joyState.id=e.changedTouches[0].identifier;joyMove(e.changedTouches[0]);},{passive:false});
+UI.joy.addEventListener('touchmove',e=>{e.preventDefault();for(const t of e.changedTouches)if(t.identifier===joyState.id)joyMove(t);},{passive:false});
+const joyEnd=e=>{for(const t of e.changedTouches)if(t.identifier===joyState.id){joyState.active=false;joyState.x=0;joyState.y=0;UI.knob.style.transform='translate(-50%,-50%)';}};
+UI.joy.addEventListener('touchend',joyEnd);UI.joy.addEventListener('touchcancel',joyEnd);
+
+UI.act.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();action();});
+
+// Asztali: kattintás dob az ostromban
+canvas.addEventListener('pointerdown',()=>{if(G.mode==='siege')throwWheel();});
+
+// ---------- Cselekvés ----------
+let nearTarget=null; // {type:'npc'|'hordo', ref}
+function action(){
+  if(G.mode==='dialog'){nextLine();return;}
+  if(G.mode==='siege'){throwWheel();return;}
+  if(G.mode!=='explore'||!nearTarget)return;
+  if(nearTarget.type==='hordo'){
+    world.remove(nearTarget.ref);
+    hordok.splice(hordok.indexOf(nearTarget.ref),1);
+    G.hordo++;
+    banner(`Puskapor: ${G.hordo}/5`,1100);
+    if(G.hordo>=5){G.quest=2;setQuest('A hordók megvannak! Keresd meg Évát a nyugati háznál.');}
+    else setQuest(`Gyűjtsd össze a puskaporos hordókat! (${G.hordo}/5)`);
+    nearTarget=null;
+    return;
+  }
+  const n=nearTarget.ref;
+  if(n.nev==='Dobó István'){
+    if(G.quest===0){
+      showDialog('Dobó István',[
+        'Gergely fiam! Megjöttél hát. A török Ali és Ahmed pasa seregével áll a falak alatt – negyvenezren, ha nem többen.',
+        'Mi kétezren vagyunk. De a fal nem a kőtől erős, hanem a védők lelkétől!',
+        'Először is: szedd össze a várudvaron szétszórt puskaporos hordókat. Öt hordót láttam – mind kell a bástyákra!'
+      ],()=>{G.quest=1;setQuest('Gyűjtsd össze a puskaporos hordókat! (0/5)');});
+    }else if(G.quest===1){
+      showDialog('Dobó István',['Siess a hordókkal, fiam! Az idő a töröknek dolgozik.']);
+    }else if(G.quest===2||G.quest===3){
+      showDialog('Dobó István',['Beszélj előbb a többiekkel – Éva keresett téged, és Mekcsey uram is szót akar váltani veled.']);
+    }else if(G.quest===4){
+      showDialog('Dobó István',[
+        'Készen állunk. Esküdjünk hát: a várat fel nem adjuk, a várból ki nem szökünk!',
+        'Aki a vár feladásáról szól, vagy arról kérdez – halál fia!',
+        'A falakra, Gergely! Kezdődik az ostrom!'
+      ],startSiege);
+    }
+  }else if(n.nev==='Éva'){
+    if(G.quest<2){
+      showDialog('Éva',['Gergő! Előbb tedd, amit Dobó kapitány kért – utána beszélünk.']);
+    }else if(G.quest===2){
+      showDialog('Éva',[
+        'Gergő! Hát mégis eljöttél utánam Egerbe… Tudtam, hogy megtalálsz.',
+        'Emlékszel a török gyűrűre? A holdas-csillagos kőre, amit még gyerekkorunkban szereztél Jumurdzsáktól?',
+        'Fogd! Hozzon szerencsét a falakon. És ígérd meg, hogy visszajössz hozzám.'
+      ],()=>{G.quest=3;setQuest('Megkaptad a török gyűrűt! Beszélj Mekcsey Istvánnal.');banner('✦ TÖRÖK GYŰRŰ ✦',1600);});
+    }else{
+      showDialog('Éva',['Vigyázz magadra a falakon, Gergő. Várni foglak.']);
+    }
+  }else if(n.nev==='Mekcsey István'){
+    if(G.quest<3){
+      showDialog('Mekcsey István',['Most ne zavarj, hadnagy uram – számolom a lőport. Tedd a dolgod!']);
+    }else if(G.quest===3){
+      showDialog('Mekcsey István',[
+        'Gergely! Hallom, ördöngös szerkezeteken töröd a fejed.',
+        'A tüzes kerék! Lőporral, szurokkal, kénnel töltött kerék – ha legurítjuk a falról, rendet vág a török sorokban!',
+        'Az ostromban koppints a CSELEKVÉS gombra (vagy kattints), és a kerék a legközelebbi törökre gurul. Most menj Dobó kapitányhoz!'
+      ],()=>{G.quest=4;setQuest('Jelentkezz Dobó Istvánnál – kezdődik az ostrom!');});
+    }else{
+      showDialog('Mekcsey István',['A tüzes kerék el ne fogyjon a kezed alól!']);
+    }
+  }
+}
+
+// ---------- Ostrom ----------
+const WALL_Z=-WALL, WALL_Y=WH+0.6;
+function startSiege(){
+  G.mode='siege'; setDusk();
+  player.position.set(0,WALL_Y,WALL_Z+1);
+  player.rotation.y=Math.PI; // kifelé néz
+  for(const n of npcs) n.obj.visible=false;
+  UI.hpwrap.classList.remove('hidden');
+  UI.wavePill.classList.remove('hidden');
+  UI.killPill.classList.remove('hidden');
+  UI.act.textContent='TÜZES KERÉK';
+  setQuest('Védd a falat! Dobj tüzes kereket a közeledő törökökre!');
+  G.wave=0; nextWave();
+}
+function nextWave(){
+  G.wave++;
+  if(G.wave>WAVES.length){victory();return;}
+  UI.waveNum.textContent=G.wave;
+  G.toSpawn=WAVES[G.wave-1]; G.spawnT=0.6;
+  banner(`${G.wave}. ROHAM!`,1700);
+}
+function spawnEnemy(){
+  const e=ember({ruha:Math.random()<0.5?0xa33b3b:0x7a3030,turban:true,kard:true,nadrag:0x4a3a5a});
+  e.position.set((Math.random()*2-1)*36, 0, -95-Math.random()*15);
+  e.userData.speed=3.2+Math.random()*1.8+G.wave*0.35;
+  e.userData.alive=true;
+  e.userData.sway=Math.random()*Math.PI*2;
+  world.add(e); G.enemies.push(e);
+}
+function throwWheel(){
+  if(G.throwCD>0)return;
+  // legközelebbi élő ellenség
+  let best=null,bd=1e9;
+  for(const e of G.enemies){if(!e.userData.alive)continue;
+    const d=e.position.distanceTo(player.position); if(d<bd){bd=d;best=e;}}
+  G.throwCD=0.75;
+  const w=new THREE.Group();
+  const torus=new THREE.Mesh(new THREE.TorusGeometry(0.55,0.18,8,14),M.tuz);
+  w.add(torus);
+  const mag=new THREE.Mesh(new THREE.SphereGeometry(0.28,8,6),
+    new THREE.MeshBasicMaterial({color:0xfff0a0}));
+  w.add(mag);
+  w.position.copy(player.position).add(new THREE.Vector3(0,1.4,0));
+  const cel=best?best.position.clone().setY(0.6):new THREE.Vector3(player.position.x,0.6,-80);
+  const dir=cel.sub(w.position).normalize();
+  w.userData={v:dir.multiplyScalar(26),torus,life:3.2};
+  world.add(w); G.wheels.push(w);
+  // dobó animáció: karok fel
+  player.userData.karok.forEach(k=>k.rotation.x=-2.2);
+  setTimeout(()=>player.userData.karok.forEach(k=>k.rotation.x=0),180);
+}
+function explode(pos){
+  for(const e of G.enemies){
+    if(e.userData.alive && e.position.distanceTo(pos)<4.2){
+      e.userData.alive=false;
+      e.userData.fall=1;
+      G.kills++; UI.killNum.textContent=G.kills;
+    }
+  }
+  for(let i=0;i<10;i++){
+    const p=new THREE.Mesh(new THREE.SphereGeometry(0.22,6,5),
+      new THREE.MeshBasicMaterial({color:i%2?0xffa033:0xff5522}));
+    p.position.copy(pos);
+    p.userData={v:new THREE.Vector3((Math.random()*2-1)*7,Math.random()*8+2,(Math.random()*2-1)*7),life:0.7};
+    world.add(p); G.particles.push(p);
+  }
+}
+function damageCastle(n){
+  G.castleHP=Math.max(0,G.castleHP-n);
+  UI.hpfill.style.width=G.castleHP+'%';
+  if(G.castleHP<=0) defeat();
+}
+function victory(){
+  G.mode='over';
+  UI.winStat.textContent=`Legyőzött törökök: ${G.kills} · A vár épsége: ${G.castleHP}%`;
+  UI.win.classList.remove('hidden');
+}
+function defeat(){
+  G.mode='over';
+  UI.lose.classList.remove('hidden');
+}
+
+// ---------- Indítás ----------
+document.getElementById('startBtn').addEventListener('click',()=>{
+  UI.title.classList.add('hidden');
+  UI.hud.classList.remove('hidden');
+  UI.joy.classList.remove('hidden');
+  UI.act.classList.remove('hidden');
+  UI.keyhint.classList.remove('hidden');
+  G.mode='explore';
+  setQuest('Keresd meg Dobó István várkapitányt a kapunál!');
+  banner('EGER VÁRA · 1552',2200);
+});
+
+// ---------- Fő ciklus ----------
+const clock=new THREE.Clock();
+const tmpV=new THREE.Vector3();
+function loop(){
+  requestAnimationFrame(loop);
+  const dt=Math.min(clock.getDelta(),0.05);
+  const t=clock.elapsedTime;
+
+  // bemeneti vektor
+  let ix=0,iz=0;
+  if(keys.KeyW||keys.ArrowUp)iz-=1;
+  if(keys.KeyS||keys.ArrowDown)iz+=1;
+  if(keys.KeyA||keys.ArrowLeft)ix-=1;
+  if(keys.KeyD||keys.ArrowRight)ix+=1;
+  ix+=joyState.x; iz+=joyState.y;
+  const il=Math.hypot(ix,iz); if(il>1){ix/=il;iz/=il;}
+
+  if(G.mode==='explore'){
+    const sp=9;
+    player.position.x+=ix*sp*dt;
+    player.position.z+=iz*sp*dt;
+    player.position.x=Math.max(-27,Math.min(27,player.position.x));
+    player.position.z=Math.max(-26,Math.min(27,player.position.z));
+    if(il>0.1){
+      player.rotation.y=Math.atan2(ix,iz)+Math.PI;
+      player.position.y=Math.abs(Math.sin(t*9))*0.12;
+      player.userData.karok[0].rotation.x=Math.sin(t*9)*0.7;
+      player.userData.karok[1].rotation.x=-Math.sin(t*9)*0.7;
+    }else{
+      player.position.y=0;
+      player.userData.karok.forEach(k=>k.rotation.x*=0.85);
+    }
+    // kamera
+    tmpV.set(player.position.x,10,player.position.z+13);
+    camera.position.lerp(tmpV,0.08);
+    camera.lookAt(player.position.x,2,player.position.z);
+
+    // interakció keresése
+    nearTarget=null; let nd=3.2;
+    for(const n of npcs){
+      const d=n.obj.position.distanceTo(player.position);
+      if(d<nd){nd=d;nearTarget={type:'npc',ref:n};}
+    }
+    for(const h of hordok){
+      const d=h.position.distanceTo(player.position);
+      if(d<2.6&&d<nd){nd=d;nearTarget={type:'hordo',ref:h};}
+      h.userData.gyuru.rotation.z=t*1.5;
+      h.userData.gyuru.material.opacity=0.45+Math.sin(t*4)*0.25;
+    }
+    if(nearTarget){
+      UI.prompt.classList.remove('hidden');
+      UI.prompt.textContent = nearTarget.type==='hordo' ? '▸ Vedd fel a hordót'
+        : `▸ Beszélj: ${nearTarget.ref.nev}`;
+      UI.act.textContent = nearTarget.type==='hordo' ? 'FELVÉTEL' : 'BESZÉLGETÉS';
+    }else{
+      UI.prompt.classList.add('hidden');
+      UI.act.textContent='CSELEKVÉS';
+    }
+    // NPC-k lélegzése
+    for(const n of npcs) n.obj.position.y=Math.sin(t*2+n.pos[0])*0.04;
+  }
+
+  else if(G.mode==='siege'){
+    // mozgás a gyilokjárón (csak X)
+    player.position.x+=ix*8*dt;
+    player.position.x=Math.max(-26,Math.min(26,player.position.x));
+    player.position.y=WALL_Y+(il>0.1?Math.abs(Math.sin(t*9))*0.1:0);
+    player.rotation.y=Math.PI;
+
+    // kamera a fal mögül a mezőre néz
+    tmpV.set(player.position.x*0.9, WALL_Y+7, WALL_Z+16);
+    camera.position.lerp(tmpV,0.07);
+    camera.lookAt(player.position.x,3,-70);
+
+    G.throwCD=Math.max(0,G.throwCD-dt);
+
+    // hullám vezérlés
+    if(G.toSpawn>0){
+      G.spawnT-=dt;
+      if(G.spawnT<=0){spawnEnemy();G.toSpawn--;G.spawnT=Math.max(0.35,1.4-G.wave*0.25);}
+    }else if(G.enemies.length===0){
+      G.betweenT+=dt;
+      if(G.betweenT>2.2){G.betweenT=0;nextWave();}
+    }
+
+    // ellenségek
+    for(let i=G.enemies.length-1;i>=0;i--){
+      const e=G.enemies[i];
+      if(e.userData.alive){
+        e.position.z+=e.userData.speed*dt;
+        e.position.x+=Math.sin(t*2+e.userData.sway)*dt*1.2;
+        e.position.y=Math.abs(Math.sin(t*8+e.userData.sway))*0.12;
+        e.rotation.y=0;
+        e.userData.karok[0].rotation.x=Math.sin(t*8+e.userData.sway)*0.8;
+        e.userData.karok[1].rotation.x=-Math.sin(t*8+e.userData.sway)*0.8;
+        if(e.position.z>WALL_Z-3){
+          world.remove(e);G.enemies.splice(i,1);
+          damageCastle(9);
+          banner('A FALAT TÁMADJÁK!',900);
+        }
+      }else{
+        e.userData.fall-=dt*1.6;
+        e.rotation.x=(1-Math.max(0,e.userData.fall))*Math.PI/2;
+        e.position.y=0;
+        if(e.userData.fall<=-0.6){world.remove(e);G.enemies.splice(i,1);}
+      }
+    }
+
+    // tüzes kerekek
+    for(let i=G.wheels.length-1;i>=0;i--){
+      const w=G.wheels[i];
+      w.position.addScaledVector(w.userData.v,dt);
+      w.userData.v.y-=14*dt;
+      w.userData.torus.rotation.x+=dt*16;
+      w.userData.life-=dt;
+      if(w.position.y<=0.5||w.userData.life<=0){
+        explode(w.position.clone().setY(0.6));
+        world.remove(w);G.wheels.splice(i,1);
+      }
+    }
+  }
+
+  else if(G.mode==='dialog'){
+    // kamera enyhe közelítés a beszélgetőre
+  }
+
+  // részecskék
+  for(let i=G.particles.length-1;i>=0;i--){
+    const p=G.particles[i];
+    p.position.addScaledVector(p.userData.v,dt);
+    p.userData.v.y-=20*dt;
+    p.userData.life-=dt;
+    p.scale.setScalar(Math.max(0.05,p.userData.life));
+    if(p.userData.life<=0){world.remove(p);G.particles.splice(i,1);}
+  }
+
+  // címképernyő alatt is forog a kamera a vár körül
+  if(G.mode==='title'){
+    camera.position.set(Math.sin(t*0.12)*55,22,Math.cos(t*0.12)*55);
+    camera.lookAt(0,5,0);
+  }
+
+  renderer.render(scene,camera);
+}
+loop();
+</script>
+</body>
+</html>

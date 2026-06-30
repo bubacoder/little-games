@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Erdei Kaland – Fedezd fel az erdő lakóit!</title>
+<style>
+  :root{
+    --moha:#3e7a44; --lomb:#6fae5c; --fakereg:#7a5436; --napfeny:#ffe9a8;
+    --eg:#bfe3f2; --bogyo:#d35d6e; --tinta:#3b2f2a; --papir:#fff8ec;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;background:#1d3322;font-family:Georgia,'Times New Roman',serif}
+  #wrap{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+
+  /* ---- HUD ---- */
+  #hud{position:absolute;top:10px;left:12px;right:12px;display:flex;justify-content:space-between;pointer-events:none;z-index:5}
+  .badge{background:rgba(59,47,42,.78);color:var(--napfeny);padding:7px 14px;border-radius:999px;
+    font-size:16px;letter-spacing:.5px;border:2px solid rgba(255,233,168,.45)}
+  /* ---- súgó ---- */
+  #hint{position:absolute;left:50%;bottom:118px;transform:translateX(-50%);background:var(--papir);
+    color:var(--tinta);padding:8px 16px;border-radius:14px;font-size:16px;border:3px solid var(--fakereg);
+    box-shadow:0 4px 0 rgba(0,0,0,.25);display:none;z-index:6;white-space:nowrap}
+  #hint::after{content:'';position:absolute;left:50%;bottom:-12px;transform:translateX(-50%);
+    border:6px solid transparent;border-top-color:var(--fakereg)}
+
+  /* ---- tudáskártya ---- */
+  #card{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+    background:rgba(20,33,22,.62);z-index:20;padding:18px}
+  #cardBox{max-width:480px;width:100%;background:var(--papir);border:4px solid var(--fakereg);
+    border-radius:22px;padding:26px 26px 20px;color:var(--tinta);text-align:center;
+    box-shadow:0 10px 0 rgba(0,0,0,.3);animation:pop .25s ease-out}
+  @keyframes pop{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
+  #cardEmoji{font-size:64px;line-height:1}
+  #cardName{font-size:26px;margin:8px 0 4px;color:var(--moha)}
+  #cardLatin{font-size:14px;font-style:italic;opacity:.65;margin-bottom:12px}
+  #cardFact{font-size:18px;line-height:1.5}
+  #cardBtn{margin-top:18px;background:var(--moha);color:#fff;border:none;border-radius:14px;
+    padding:12px 28px;font-size:17px;font-family:inherit;cursor:pointer;box-shadow:0 4px 0 #2a5530}
+  #cardBtn:active{transform:translateY(3px);box-shadow:0 1px 0 #2a5530}
+
+  /* ---- kezdő / győzelem képernyő ---- */
+  #title{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:linear-gradient(#bfe3f2,#dff1d8 60%,#9cc987);z-index:30;text-align:center;padding:20px;color:var(--tinta)}
+  #title h1{font-size:clamp(34px,7vw,58px);color:#2a5530;text-shadow:2px 2px 0 #fff}
+  #title p{font-size:clamp(15px,3vw,19px);max-width:520px;margin:14px 0 6px;line-height:1.55}
+  .keys{font-size:14px;opacity:.8;margin-bottom:20px}
+  .bigbtn{background:var(--bogyo);color:#fff;border:none;border-radius:18px;padding:16px 42px;
+    font-size:22px;font-family:inherit;cursor:pointer;box-shadow:0 6px 0 #a33c4c;margin-top:10px}
+  .bigbtn:active{transform:translateY(4px);box-shadow:0 2px 0 #a33c4c}
+  #titleEmojis{font-size:clamp(28px,6vw,44px);letter-spacing:8px;margin-bottom:6px}
+
+  /* ---- érintő gombok ---- */
+  #touch{position:absolute;left:0;right:0;bottom:0;height:110px;display:flex;
+    justify-content:space-between;align-items:flex-end;padding:0 14px 14px;z-index:10;pointer-events:none}
+  .tgroup{display:flex;gap:12px;pointer-events:auto}
+  .tbtn{width:74px;height:74px;border-radius:50%;border:3px solid rgba(255,255,255,.6);
+    background:rgba(59,47,42,.55);color:#fff;font-size:30px;display:flex;align-items:center;
+    justify-content:center;user-select:none;-webkit-user-select:none}
+  .tbtn:active{background:rgba(59,47,42,.85)}
+  #btnAct{background:rgba(211,93,110,.75);font-size:34px}
+  @media (hover:hover) and (pointer:fine){ #touch{display:none} }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+
+  <div id="hud">
+    <div class="badge">🌰 <span id="acorns">0</span> makk</div>
+    <div class="badge">📖 <span id="met">0</span>/<span id="total">0</span> állat</div>
+  </div>
+
+  <div id="hint"></div>
+
+  <div id="card">
+    <div id="cardBox">
+      <div id="cardEmoji"></div>
+      <div id="cardName"></div>
+      <div id="cardLatin"></div>
+      <div id="cardFact"></div>
+      <button id="cardBtn">Tovább a kalandra! 🌿</button>
+    </div>
+  </div>
+
+  <div id="title">
+    <div id="titleEmojis">🦊🦉🐿️🦔🦌</div>
+    <h1>Erdei Kaland</h1>
+    <p id="titleText">Barangold be az erdőt, gyűjts makkokat, és ismerkedj meg az állatokkal!
+      Ha egy állat közelébe érsz, nyomd meg az <b>E</b> gombot (vagy a <b>?</b> gombot), és megtudhatsz róla egy érdekességet.</p>
+    <p class="keys">⬅️ ➡️ vagy A/D: mozgás &nbsp;•&nbsp; ⬆️ / szóköz / W: ugrás &nbsp;•&nbsp; E: érdekesség</p>
+    <button class="bigbtn" id="startBtn">Indul a kaland! 🍄</button>
+  </div>
+
+  <div id="touch">
+    <div class="tgroup">
+      <div class="tbtn" id="btnL">◀</div>
+      <div class="tbtn" id="btnR">▶</div>
+    </div>
+    <div class="tgroup">
+      <div class="tbtn" id="btnAct">?</div>
+      <div class="tbtn" id="btnJ">▲</div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ============================================================
+   ERDEI KALAND – magyar nyelvű erdei platformjáték
+   ============================================================ */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resize); resize();
+
+/* ---------------- Pálya ---------------- */
+const GROUND = 80;            // talaj magassága a képernyő aljától
+const LEVEL_W = 5200;         // pálya teljes szélessége
+
+// platformok: x, y (a talajtól számított magasság), w
+const platforms = [
+  {x:380,  h:110, w:170, kind:'log'},
+  {x:640,  h:200, w:150, kind:'branch'},
+  {x:950,  h:120, w:200, kind:'mush'},
+  {x:1340, h:180, w:160, kind:'branch'},
+  {x:1560, h:90,  w:190, kind:'log'},
+  {x:1980, h:150, w:180, kind:'mush'},
+  {x:2260, h:240, w:150, kind:'branch'},
+  {x:2620, h:120, w:200, kind:'log'},
+  {x:3020, h:190, w:160, kind:'branch'},
+  {x:3300, h:100, w:180, kind:'mush'},
+  {x:3700, h:160, w:170, kind:'log'},
+  {x:4050, h:230, w:150, kind:'branch'},
+  {x:4420, h:120, w:200, kind:'mush'},
+  {x:4760, h:180, w:160, kind:'branch'},
+];
+
+// makkok
+const acornSpots = [
+  [300,40],[460,160],[700,250],[1040,170],[1200,40],[1410,230],[1640,140],
+  [1850,40],[2060,200],[2330,290],[2500,40],[2710,170],[2900,40],[3090,240],
+  [3380,150],[3550,40],[3780,210],[4120,280],[4300,40],[4500,170],[4830,230],[5000,40]
+];
+let acorns = [];
+
+/* ---------------- Állatok és érdekességek ---------------- */
+const ANIMALS = [
+  { emoji:'🐦', name:'Vörösbegy', latin:'Erithacus rubecula', x:520, fly:false,
+    facts:[
+      'A vörösbegy egyáltalán nem fél az embertől: a kertészkedőket gyakran követi, mert a felásott földben kukacokat remél.',
+      'A vörösbegy télen is énekel – ő az egyik kevés madár, akinek dala egész évben hallható az erdőben.',
+      'A fiatal vörösbegyeknek még nincs piros begyük: eleinte pöttyös barnák, hogy jobban el tudjanak rejtőzni.'
+    ]},
+  { emoji:'🐿️', name:'Mókus', latin:'Sciurus vulgaris', x:880, fly:false,
+    facts:[
+      'A mókus ősszel több ezer makkot és diót rejt el, de sokról megfeledkezik – így akaratlanul is rengeteg fát ültet!',
+      'A mókus bozontos farka kormányként segíti ugrás közben, télen pedig meleg takaróként szolgál.',
+      'A mókus képes fejjel lefelé is leszaladni a fatörzsön, mert a hátsó lába bokából hátrafelé is el tud fordulni.'
+    ]},
+  { emoji:'🦔', name:'Sün', latin:'Erinaceus europaeus', x:1280, fly:false,
+    facts:[
+      'Egy felnőtt sünnek körülbelül 5000–7000 tüskéje van, és veszély esetén szúrós gombóccá gömbölyödik.',
+      'A sün téli álmot alszik: ősszel jó kövérre eszi magát, majd avarkupacban szunyókálja át a hideg hónapokat.',
+      'A sün éjszaka akár 2–3 kilométert is sétál rovarokat, csigákat és gilisztákat keresgélve.'
+    ]},
+  { emoji:'🦋', name:'Pillangó', latin:'Lepidoptera', x:1700, fly:true,
+    facts:[
+      'A pillangók a lábukkal érzik az ízeket! Így amikor egy virágra szállnak, rögtön tudják, finom-e a nektárja.',
+      'A pillangó szárnyát több ezer apró, csillogó pikkely borítja – ettől olyan színes és selymes.',
+      'A pillangó élete nagy átalakulás: petéből hernyó, hernyóból báb, bábból pedig gyönyörű lepke lesz.'
+    ]},
+  { emoji:'🪶', name:'Harkály', latin:'Dendrocopos major', x:2150, fly:false, perch:240,
+    facts:[
+      'A harkály másodpercenként akár 20-szor is a fába kopogtat, mégsem fáj a feje: koponyája beépített „bukósisakként” védi az agyát.',
+      'A harkály nyelve olyan hosszú, hogy nyugalmi helyzetben a koponyája köré tekeredik – így húzza ki a kéreg alól a kukacokat.',
+      'A harkály kopogása üzenet is: így jelzi a többieknek, hogy „ez az én fám, az én erdőrészem!”'
+    ]},
+  { emoji:'🐰', name:'Nyúl', latin:'Lepus europaeus', x:2560, fly:false,
+    facts:[
+      'A nyúl szeme a feje oldalán ül, így majdnem teljesen körbelát – hátranézés nélkül is észreveszi a rókát!',
+      'Veszély esetén a nyúl nagyot dobbant a hátsó lábával, így figyelmezteti a társait.',
+      'A mezei nyúl rövid távon akár 70 km/h sebességgel is futhat, és cikcakkban menekül, hogy összezavarja üldözőjét.'
+    ]},
+  { emoji:'🦊', name:'Róka', latin:'Vulpes vulpes', x:3150, fly:false,
+    facts:[
+      'A róka hallása olyan éles, hogy a vastag hótakaró alatt motoszkáló egeret is meghallja – aztán nagy ívben fejest ugrik a hóba érte!',
+      'A róka nem csak húst eszik: nyáron szívesen csemegézik bogyókat és gyümölcsöket is.',
+      'A rókák sokféle hangon „beszélgetnek”: vakkantanak, vinnyognak, sőt nevetésszerű hangot is adnak.'
+    ]},
+  { emoji:'🦉', name:'Bagoly', latin:'Strix aluco', x:3620, fly:false, perch:280,
+    facts:[
+      'A bagoly a fejét majdnem teljesen körbe, akár 270 fokban el tudja fordítani – a szemét ugyanis nem tudja mozgatni!',
+      'A bagoly tollai különleges, puha szegélyűek, ezért szinte teljesen hangtalanul repül a sötét erdőben.',
+      'A bagoly fülei nem egyforma magasan ülnek a fején – így hang alapján is pontosan tudja, hol szalad az egér.'
+    ]},
+  { emoji:'🦆', name:'Tőkés réce', latin:'Anas platyrhynchos', x:4180, fly:false,
+    facts:[
+      'A réce tollai vízhatlanok: egy speciális olajjal keni be őket, ezért úszás után szinte szárazon rázza le magáról a vizet.',
+      'A kiskacsák kikelés után az első mozgó lényt tekintik anyukájuknak, és libasorban követik mindenhová.',
+      'A récék fél szemmel nyitva is tudnak aludni, így pihenés közben is figyelik, nem jön-e veszély.'
+    ]},
+  { emoji:'🦌', name:'Őz', latin:'Capreolus capreolus', x:4650, fly:false,
+    facts:[
+      'Az őz nem a szarvas kicsinye, hanem külön állatfaj – Európa legkisebb szarvasféléje.',
+      'Ha az őz megijed, ugatáshoz hasonló, riasztó hangot hallat – sokan kutyának hiszik az erdőben!',
+      'Az őzgida pöttyös bundája tökéletes álca: ha az avarban lapul, szinte láthatatlan. Soha ne nyúlj hozzá, az anyukája a közelben van!'
+    ]},
+];
+const totalEl = document.getElementById('total');
+totalEl.textContent = ANIMALS.length;
+
+/* ---------------- Játékos ---------------- */
+const player = {
+  x:100, y:0, vx:0, vy:0, w:34, h:52,
+  onGround:false, facing:1, walkT:0, alive:true
+};
+
+/* ---------------- Állapot ---------------- */
+let cameraX = 0, time = 0, started = false, paused = false, won = false;
+let collected = 0;
+const metSet = new Set();
+let factIndex = {};            // állatonként körbejáró tények
+const keys = {};
+
+/* háttér díszek (determinisztikus "véletlen") */
+function rnd(seed){ const x = Math.sin(seed*127.1)*43758.5453; return x - Math.floor(x); }
+const trees = [], flowers = [], clouds = [];
+for(let i=0;i<46;i++) trees.push({x:i*120+rnd(i)*80, s:.7+rnd(i+50)*.7, hue:rnd(i+99)});
+for(let i=0;i<90;i++) flowers.push({x:rnd(i+7)*LEVEL_W, t:Math.floor(rnd(i+13)*4)});
+for(let i=0;i<10;i++) clouds.push({x:rnd(i+31)*LEVEL_W, y:40+rnd(i+41)*120, s:.6+rnd(i+61)*.8});
+
+function resetAcorns(){
+  acorns = acornSpots.map(([x,h])=>({x, h, got:false, t:Math.random()*6}));
+}
+
+/* ---------------- Bemenet ---------------- */
+window.addEventListener('keydown', e=>{
+  if(['ArrowLeft','ArrowRight','ArrowUp','Space'].includes(e.code)) e.preventDefault();
+  keys[e.code] = true;
+  if(e.code==='KeyE' || e.code==='Enter') tryAction();
+});
+window.addEventListener('keyup', e=>{ keys[e.code] = false; });
+
+function bindTouch(id, code){
+  const el = document.getElementById(id);
+  const on  = ev=>{ ev.preventDefault(); keys[code]=true; };
+  const off = ev=>{ ev.preventDefault(); keys[code]=false; };
+  el.addEventListener('touchstart', on, {passive:false});
+  el.addEventListener('touchend', off, {passive:false});
+  el.addEventListener('touchcancel', off, {passive:false});
+  el.addEventListener('mousedown', on);
+  el.addEventListener('mouseup', off);
+  el.addEventListener('mouseleave', off);
+}
+bindTouch('btnL','ArrowLeft');
+bindTouch('btnR','ArrowRight');
+bindTouch('btnJ','ArrowUp');
+document.getElementById('btnAct').addEventListener('touchstart', e=>{e.preventDefault(); tryAction();}, {passive:false});
+document.getElementById('btnAct').addEventListener('mousedown', e=>{e.preventDefault(); tryAction();});
+
+/* ---------------- Érdekesség-kártya ---------------- */
+const cardEl = document.getElementById('card');
+const hintEl = document.getElementById('hint');
+function nearestAnimal(){
+  let best = null, bestD = 130;
+  for(const a of ANIMALS){
+    const d = Math.abs(a.x - (player.x + player.w/2));
+    if(d < bestD){ best = a; bestD = d; }
+  }
+  return best;
+}
+function tryAction(){
+  if(!started || won) return;
+  if(paused){ closeCard(); return; }
+  const a = nearestAnimal();
+  if(!a) return;
+  paused = true;
+  metSet.add(a.name);
+  document.getElementById('met').textContent = metSet.size;
+  const i = (factIndex[a.name] = ((factIndex[a.name] ?? -1) + 1) % a.facts.length);
+  document.getElementById('cardEmoji').textContent = a.emoji;
+  document.getElementById('cardName').textContent = a.name;
+  document.getElementById('cardLatin').textContent = a.latin;
+  document.getElementById('cardFact').textContent = a.facts[i];
+  cardEl.style.display = 'flex';
+}
+function closeCard(){ paused = false; cardEl.style.display = 'none'; }
+document.getElementById('cardBtn').addEventListener('click', closeCard);
+
+/* ---------------- Kezdés / győzelem ---------------- */
+const titleEl = document.getElementById('title');
+document.getElementById('startBtn').addEventListener('click', ()=>{
+  titleEl.style.display = 'none';
+  started = true; won = false; paused = false;
+  player.x = 100; player.y = 0; player.vx = 0; player.vy = 0;
+  collected = 0; document.getElementById('acorns').textContent = 0;
+  metSet.clear(); document.getElementById('met').textContent = 0;
+  resetAcorns();
+});
+function showWin(){
+  won = true;
+  document.querySelector('#title h1').textContent = 'Gratulálok! 🎉';
+  document.getElementById('titleText').innerHTML =
+    `Bejártad az egész erdőt!<br>🌰 Összegyűjtött makkok: <b>${collected} / ${acornSpots.length}</b><br>` +
+    `📖 Megismert állatok: <b>${metSet.size} / ${ANIMALS.length}</b>` +
+    (metSet.size < ANIMALS.length ? '<br><small>Indulj újra, és keresd meg a többi erdőlakót is!</small>' : '<br><small>Igazi erdőismerő lettél! 🏅</small>');
+  document.getElementById('startBtn').textContent = 'Újra játszom! 🌲';
+  document.getElementById('titleEmojis').textContent = '🏆🌳🦊🦉🌰';
+  titleEl.style.display = 'flex';
+  started = false;
+}
+
+/* ---------------- Fizika ---------------- */
+function groundY(){ return H - GROUND; }
+function platTop(p){ return groundY() - p.h; }
+
+function step(dt){
+  if(!started || paused || won) return;
+  time += dt;
+
+  const SPEED = 260, JUMP = 560, GRAV = 1500;
+  let move = 0;
+  if(keys['ArrowLeft']||keys['KeyA']) move -= 1;
+  if(keys['ArrowRight']||keys['KeyD']) move += 1;
+  player.vx = move * SPEED;
+  if(move!==0){ player.facing = move; player.walkT += dt*10; }
+
+  if((keys['ArrowUp']||keys['Space']||keys['KeyW']) && player.onGround){
+    player.vy = -JUMP; player.onGround = false;
+  }
+  player.vy += GRAV*dt;
+
+  player.x += player.vx*dt;
+  player.x = Math.max(0, Math.min(LEVEL_W - player.w, player.x));
+
+  const prevBottom = player.y;
+  player.y += player.vy*dt;
+
+  // talaj
+  player.onGround = false;
+  if(player.y >= 0){ player.y = 0; player.vy = 0; player.onGround = true; }
+
+  // platformok (player.y: 0 = talajon áll, negatív = a levegőben, lábmagasság a talajhoz képest)
+  const footPrev = -prevBottom, footNow = -player.y;
+  for(const p of platforms){
+    const cx = player.x + player.w/2;
+    if(cx > p.x && cx < p.x + p.w){
+      if(player.vy > 0 && footPrev >= p.h - 2 && footNow <= p.h){
+        player.y = -p.h; player.vy = 0; player.onGround = true;
+      }
+    }
+  }
+
+  // makk gyűjtés
+  for(const a of acorns){
+    if(a.got) continue;
+    const ax = a.x, ay = a.h + 14;
+    const px = player.x + player.w/2, py = -player.y + player.h/2;
+    if(Math.abs(ax-px) < 30 && Math.abs(ay-py) < 44){
+      a.got = true; collected++;
+      document.getElementById('acorns').textContent = collected;
+    }
+  }
+
+  // cél
+  if(player.x > LEVEL_W - 140) showWin();
+
+  // kamera
+  const target = player.x - W*0.4;
+  cameraX += (target - cameraX) * Math.min(1, dt*6);
+  cameraX = Math.max(0, Math.min(LEVEL_W - W, cameraX));
+
+  // súgó buborék
+  const a = nearestAnimal();
+  if(a){
+    hintEl.style.display = 'block';
+    hintEl.textContent = `${a.emoji} ${a.name} — nyomd meg: E / ?`;
+  } else hintEl.style.display = 'none';
+}
+
+/* ---------------- Rajzolás ---------------- */
+function drawTree(x, s, hue){
+  const gy = groundY();
+  ctx.save(); ctx.translate(x, gy); ctx.scale(s, s);
+  ctx.fillStyle = '#6b4a2e';
+  ctx.fillRect(-10, -150, 20, 150);
+  const greens = ['#4e8a4a','#5f9e54','#3f7a40'];
+  ctx.fillStyle = greens[Math.floor(hue*3)];
+  ctx.beginPath(); ctx.arc(0,-170,55,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(-38,-140,40,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(38,-140,40,0,7); ctx.fill();
+  ctx.restore();
+}
+function drawPlatform(p){
+  const x = p.x - cameraX, y = platTop(p);
+  if(x + p.w < -50 || x > W+50) return;
+  if(p.kind==='mush'){
+    ctx.fillStyle = '#e8dcc8';
+    ctx.fillRect(x + p.w/2 - 14, y, 28, p.h);
+    ctx.fillStyle = '#d35d6e';
+    ctx.beginPath(); ctx.ellipse(x+p.w/2, y, p.w/2, 20, 0, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#fff';
+    for(let i=0;i<3;i++){ ctx.beginPath(); ctx.arc(x+p.w*(0.25+i*0.25), y-8, 6, 0, 7); ctx.fill(); }
+  } else if(p.kind==='log'){
+    ctx.fillStyle = '#7a5436'; ctx.fillRect(x, y, p.w, 24);
+    ctx.fillStyle = '#9b7048'; ctx.fillRect(x, y, p.w, 8);
+    ctx.fillStyle = '#5d3f27';
+    ctx.beginPath(); ctx.ellipse(x, y+12, 8, 12, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x+p.w, y+12, 8, 12, 0, 0, 7); ctx.fill();
+  } else { // branch
+    ctx.strokeStyle = '#6b4a2e'; ctx.lineWidth = 14; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(x, y+8); ctx.lineTo(x+p.w, y+8); ctx.stroke();
+    ctx.fillStyle = '#5f9e54';
+    for(let i=0;i<4;i++){ ctx.beginPath(); ctx.arc(x+10+i*(p.w-20)/3, y+2, 10, 0, 7); ctx.fill(); }
+  }
+}
+function drawGirl(){
+  const gy = groundY();
+  const x = player.x - cameraX + player.w/2;
+  const y = gy + player.y;               // lábak vonala
+  const bob = player.onGround && player.vx!==0 ? Math.sin(player.walkT)*2 : 0;
+  ctx.save(); ctx.translate(x, y - bob); ctx.scale(player.facing, 1);
+
+  // lábak
+  const leg = player.onGround && player.vx!==0 ? Math.sin(player.walkT)*6 : 0;
+  ctx.strokeStyle = '#e8b08e'; ctx.lineWidth = 6; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(-6,-16); ctx.lineTo(-6+leg, 0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(6,-16); ctx.lineTo(6-leg, 0); ctx.stroke();
+  ctx.fillStyle = '#b5483f';
+  ctx.beginPath(); ctx.ellipse(-6+leg, 0, 6, 4, 0, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(6-leg, 0, 6, 4, 0, 0, 7); ctx.fill();
+
+  // ruha
+  ctx.fillStyle = '#e2705f';
+  ctx.beginPath(); ctx.moveTo(0,-40); ctx.lineTo(-15,-12); ctx.lineTo(15,-12); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#fff'; // kötényke
+  ctx.beginPath(); ctx.moveTo(0,-34); ctx.lineTo(-8,-14); ctx.lineTo(8,-14); ctx.closePath(); ctx.fill();
+
+  // karok
+  ctx.strokeStyle = '#e8b08e'; ctx.lineWidth = 5;
+  const arm = player.onGround && player.vx!==0 ? Math.sin(player.walkT)*5 : 0;
+  ctx.beginPath(); ctx.moveTo(-9,-34); ctx.lineTo(-14-arm,-22); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(9,-34); ctx.lineTo(14+arm,-22); ctx.stroke();
+
+  // fej
+  ctx.fillStyle = '#f3c6a5';
+  ctx.beginPath(); ctx.arc(0,-48,11,0,7); ctx.fill();
+  // haj + copfok
+  ctx.fillStyle = '#5d3a1f';
+  ctx.beginPath(); ctx.arc(0,-51,11, Math.PI*0.95, Math.PI*2.05); ctx.fill();
+  ctx.beginPath(); ctx.arc(-11,-44,5,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(11,-44,5,0,7); ctx.fill();
+  ctx.fillStyle = '#d35d6e';
+  ctx.beginPath(); ctx.arc(-11,-48,3,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(11,-48,3,0,7); ctx.fill();
+  // arc
+  ctx.fillStyle = '#3b2f2a';
+  ctx.beginPath(); ctx.arc(4,-49,1.6,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(9,-49,1.6,0,7); ctx.fill();
+  ctx.strokeStyle = '#3b2f2a'; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.arc(6,-45,3, 0.2, Math.PI-0.2); ctx.stroke();
+  ctx.restore();
+}
+function draw(){
+  const gy = groundY();
+  // ég
+  const sky = ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,'#bfe3f2'); sky.addColorStop(.6,'#dff1d8'); sky.addColorStop(1,'#c8e3b4');
+  ctx.fillStyle = sky; ctx.fillRect(0,0,W,H);
+
+  // nap
+  ctx.fillStyle = 'rgba(255,233,168,.9)';
+  ctx.beginPath(); ctx.arc(W-90, 80, 42, 0, 7); ctx.fill();
+
+  // felhők
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  for(const c of clouds){
+    const cx = ((c.x - cameraX*0.3) % (LEVEL_W*0.5) + LEVEL_W*0.5) % (LEVEL_W*0.5) - 100;
+    if(cx<-200||cx>W+200) continue;
+    ctx.beginPath();
+    ctx.arc(cx, c.y, 24*c.s, 0, 7);
+    ctx.arc(cx+26*c.s, c.y+6*c.s, 20*c.s, 0, 7);
+    ctx.arc(cx-26*c.s, c.y+6*c.s, 18*c.s, 0, 7);
+    ctx.fill();
+  }
+
+  // távoli fák (parallax)
+  for(const t of trees){
+    const tx = t.x*1.3 - cameraX*0.55;
+    if(tx>-120 && tx<W+120) drawTree(tx, t.s*0.8, t.hue);
+  }
+
+  // talaj
+  ctx.fillStyle = '#6fae5c'; ctx.fillRect(0, gy, W, GROUND);
+  ctx.fillStyle = '#588f49'; ctx.fillRect(0, gy, W, 12);
+  ctx.fillStyle = '#4a3826'; ctx.fillRect(0, gy+34, W, GROUND-34);
+
+  // virágok
+  for(const f of flowers){
+    const fx = f.x - cameraX;
+    if(fx<-20||fx>W+20) continue;
+    const cols = ['#d35d6e','#e9b94e','#9a6fc2','#fff'];
+    ctx.fillStyle = cols[f.t];
+    ctx.beginPath(); ctx.arc(fx, gy+6, 4, 0, 7); ctx.fill();
+    ctx.fillStyle = '#ffe9a8';
+    ctx.beginPath(); ctx.arc(fx, gy+6, 1.6, 0, 7); ctx.fill();
+  }
+
+  // platformok
+  for(const p of platforms) drawPlatform(p);
+
+  // makkok
+  ctx.font = '26px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  for(const a of acorns){
+    if(a.got) continue;
+    const ax = a.x - cameraX;
+    if(ax<-30||ax>W+30) continue;
+    const ay = gy - a.h - 14 + Math.sin(time*3 + a.t)*4;
+    ctx.fillText('🌰', ax, ay);
+  }
+
+  // állatok
+  for(const an of ANIMALS){
+    const ax = an.x - cameraX;
+    if(ax<-60||ax>W+60) continue;
+    let ay = gy - 18;
+    if(an.perch) ay = gy - an.perch;
+    if(an.fly)  ay = gy - 90 + Math.sin(time*2 + an.x)*18;
+    const hop = (!an.fly && !an.perch) ? Math.abs(Math.sin(time*2 + an.x))* -6 : 0;
+    ctx.font = '40px serif';
+    ctx.fillText(an.emoji, ax, ay + hop);
+    // ülőfa a magasban lakóknak
+    if(an.perch){
+      ctx.strokeStyle = '#6b4a2e'; ctx.lineWidth = 10; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(ax-36, ay+24); ctx.lineTo(ax+36, ay+24); ctx.stroke();
+    }
+    // megismert pipa
+    if(metSet.has(an.name)){
+      ctx.font = '16px serif';
+      ctx.fillText('✅', ax+24, ay-26);
+    }
+  }
+
+  // cél: házikó
+  const hx = LEVEL_W - 110 - cameraX;
+  if(hx > -160 && hx < W+160){
+    ctx.fillStyle = '#9b7048'; ctx.fillRect(hx-50, gy-90, 100, 90);
+    ctx.fillStyle = '#b5483f';
+    ctx.beginPath(); ctx.moveTo(hx-62, gy-90); ctx.lineTo(hx, gy-140); ctx.lineTo(hx+62, gy-90); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#5d3f27'; ctx.fillRect(hx-16, gy-52, 32, 52);
+    ctx.font='28px serif'; ctx.fillText('🏡', hx, gy-160);
+    ctx.font='16px Georgia'; ctx.fillStyle='#3b2f2a';
+    ctx.fillText('CÉL', hx, gy-105);
+  }
+
+  // játékos
+  if(started || won) drawGirl();
+}
+
+/* ---------------- Ciklus ---------------- */
+let last = performance.now();
+function loop(now){
+  const dt = Math.min(0.033, (now-last)/1000);
+  last = now;
+  step(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+resetAcorns();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
