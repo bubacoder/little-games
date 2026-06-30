@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="hu">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -37,6 +37,7 @@
     header {
       text-align: center;
       margin-bottom: 56px;
+      position: relative;
     }
 
     header h1 {
@@ -53,6 +54,38 @@
       margin-top: 10px;
       font-size: 14px;
       color: var(--muted);
+    }
+
+    /* ── Language switcher ── */
+    #lang-switcher {
+      position: absolute;
+      top: 0;
+      right: 0;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .lang-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 20px;
+      cursor: pointer;
+      line-height: 1;
+      transition: border-color 0.15s, background 0.15s;
+      user-select: none;
+    }
+
+    .lang-btn:hover {
+      border-color: rgba(129,140,248,0.45);
+      background: rgba(255,255,255,0.04);
+    }
+
+    .lang-btn.active {
+      border-color: var(--accent);
+      background: rgba(129,140,248,0.12);
     }
 
     /* ── Grid ── */
@@ -98,23 +131,6 @@
       user-select: none;
       position: relative;
       overflow: hidden;
-    }
-
-    /* Each game gets a unique gradient background */
-    .card[data-game="parallax"] .card-thumb {
-      background: linear-gradient(135deg, #0a0a14 0%, #1a1040 50%, #0a1428 100%);
-    }
-
-    .card[data-game="snake"] .card-thumb {
-      background: linear-gradient(135deg, #0a1a0a 0%, #0d3020 50%, #0a1a0a 100%);
-    }
-
-    .card[data-game="egri-csillagok"] .card-thumb {
-      background: linear-gradient(135deg, #14091a 0%, #2a1020 50%, #3d0a14 100%);
-    }
-
-    .card[data-game="erdei-kaland"] .card-thumb {
-      background: linear-gradient(135deg, #1d3322 0%, #3e7a44 50%, #1d3322 100%);
     }
 
     /* Subtle animated shimmer on hover */
@@ -183,78 +199,77 @@
 
   <header>
     <h1>Little Games</h1>
-    <p>A collection of browser experiments — no installs, no accounts.</p>
+    <p id="header-desc"></p>
+    <div id="lang-switcher">
+      <button class="lang-btn" data-lang="hu" title="Magyar">🇭🇺</button>
+      <button class="lang-btn" data-lang="en" title="English">🇬🇧</button>
+    </div>
   </header>
 
-  <div class="grid">
+  <div class="grid" id="game-grid"></div>
 
-    <a class="card" href="parallax/" data-game="parallax">
-      <div class="card-thumb">🪟</div>
-      <div class="card-body">
-        <div class="card-title">Parallax Window</div>
-        <div class="card-desc">
-          Webcam tracks your head and shifts the 3D scene in real time —
-          like looking through a window into another world.
-        </div>
-        <div class="card-meta">
-          <span class="tag">Three.js</span>
-          <span class="tag">MediaPipe</span>
-          <span class="tag">Head tracking</span>
-        </div>
-      </div>
-    </a>
+  <footer id="footer-text"></footer>
 
-    <a class="card" href="snake/" data-game="snake">
-      <div class="card-thumb">🐍</div>
-      <div class="card-body">
-        <div class="card-title">Snake</div>
-        <div class="card-desc">
-          Classic Snake. Eat, grow, don't hit yourself.
-          Arrow keys or WASD to move.
-        </div>
-        <div class="card-meta">
-          <span class="tag">Canvas</span>
-          <span class="tag">Keyboard</span>
-          <span class="tag">Classic</span>
-        </div>
-      </div>
-    </a>
+  <script src="games.js"></script>
+  <script>
+    const UI = {
+      hu: {
+        desc:   "Böngészős mini-játékok gyűjteménye – telepítés és regisztráció nélkül.",
+        footer: "nyílt forráskódú · csak a böngészőben fut",
+      },
+      en: {
+        desc:   "A collection of browser experiments — no installs, no accounts.",
+        footer: "open-source · runs entirely in the browser",
+      },
+    };
 
-    <a class="card" href="egri-csillagok/" data-game="egri-csillagok">
-      <div class="card-thumb">⚔️</div>
-      <div class="card-body">
-        <div class="card-title">Egri Csillagok</div>
-        <div class="card-desc">
-          Defend Eger Castle against the Ottoman siege of 1552.
-          A story-driven action game inspired by the Hungarian classic.
-        </div>
-        <div class="card-meta">
-          <span class="tag">Canvas</span>
-          <span class="tag">Hungarian</span>
-          <span class="tag">Historical</span>
-        </div>
-      </div>
-    </a>
+    const DEFAULT_LANG = "hu";
+    let currentLang = localStorage.getItem("lang") || DEFAULT_LANG;
 
-    <a class="card" href="erdei-kaland/" data-game="erdei-kaland">
-      <div class="card-thumb">🌲</div>
-      <div class="card-body">
-        <div class="card-title">Erdei Kaland</div>
-        <div class="card-desc">
-          Explore the forest and discover its inhabitants.
-          A nature-themed educational adventure for all ages.
-        </div>
-        <div class="card-meta">
-          <span class="tag">Canvas</span>
-          <span class="tag">Hungarian</span>
-          <span class="tag">Nature</span>
-        </div>
-      </div>
-    </a>
+    function buildGrid(lang) {
+      const grid = document.getElementById("game-grid");
+      grid.innerHTML = "";
 
-  </div>
+      GAMES.forEach(game => {
+        const a = document.createElement("a");
+        a.className = "card";
+        a.href = game.id + "/";
+        a.dataset.game = game.id;
 
-  <footer>open-source · runs entirely in the browser</footer>
+        a.innerHTML = `
+          <div class="card-thumb" style="background: ${game.thumb}">${game.emoji}</div>
+          <div class="card-body">
+            <div class="card-title">${game[lang].title}</div>
+            <div class="card-desc">${game[lang].desc}</div>
+            <div class="card-meta">${game.tags.map(t => `<span class="tag">${t}</span>`).join("")}</div>
+          </div>`;
+
+        grid.appendChild(a);
+      });
+    }
+
+    function applyLang(lang) {
+      currentLang = lang;
+      localStorage.setItem("lang", lang);
+      document.documentElement.lang = lang;
+
+      document.getElementById("header-desc").textContent = UI[lang].desc;
+      document.getElementById("footer-text").textContent = UI[lang].footer;
+
+      document.querySelectorAll(".lang-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.lang === lang);
+      });
+
+      buildGrid(lang);
+    }
+
+    document.getElementById("lang-switcher").addEventListener("click", e => {
+      const btn = e.target.closest(".lang-btn");
+      if (btn) applyLang(btn.dataset.lang);
+    });
+
+    applyLang(currentLang);
+  </script>
 
 </body>
 </html>

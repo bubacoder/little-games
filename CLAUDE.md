@@ -22,6 +22,8 @@ Indítás: `./start.sh` (Python http.server, port 8765).
 | src/erdei-kaland/     | Erdei Kaland               | HTML5 Canvas             |
 
 Landing page: `src/index.html` – kártya-rács, sötét téma, linkel az összes játékra.
+Játék-adatok: `src/games.js` – kétnyelvű (hu/en) adatfájl, innen tölti be az index a kártyákat.
+Nyelvváltó: 🇭🇺/🇬🇧 zászló gombok a fejlécben; választott nyelv `localStorage`-ban tárolódik; alapértelmezett: magyar.
 
 ---
 
@@ -45,10 +47,16 @@ Ezek **erős ajánlások** – indokolt esetben el lehet térni tőlük, de az e
 
 1. Hozz létre új alkönyvtárat: `src/<játéknév>/`
 2. Legalább egy `index.html` fájl szükséges benne.
-3. **Frissítsd `src/index.html`-t**: add hozzá az új játékot a kártya-rácshoz (emoji, cím, leírás, tag-ek).
-4. A kártya formátuma illeszkedjen a meglévő stílushoz (sötét téma, `#0b0c10` háttér).
-5. **Frissítsd ezt a `CLAUDE.md` fájlt**: add hozzá az új játékot a „Meglévő játékok" táblázathoz (könyvtár, cím, technológia).
-6. **Technológia-választás**: előnyben részesítsd azokat a technológiákat, amiket más játékok már használnak (Canvas, Three.js, Web Audio API). Új technológia behozható, ha indokolt – indokold röviden.
+3. **Frissítsd `src/games.js`-t**: add hozzá az új játékot a `GAMES` tömbhöz.
+   - `id` – könyvtár neve (pl. `"matekos-kviz"`)
+   - `emoji` – egyetlen ikon a kártya előnézetéhez
+   - `thumb` – CSS `background` érték (gradient ajánlott, illeszkedjen a sötét témához)
+   - `hu.title` / `hu.desc` – magyar cím és leírás
+   - `en.title` / `en.desc` – angol cím és leírás
+   - `tags` – technológiai tagek tömbje (pl. `["Canvas", "Web Audio"]`)
+   - Az `src/index.html` **nem igényel módosítást** – automatikusan megjelenik a kártya.
+4. **Frissítsd ezt a `CLAUDE.md` fájlt**: add hozzá az új játékot a „Meglévő játékok" táblázathoz (könyvtár, cím, technológia).
+5. **Technológia-választás**: előnyben részesítsd azokat a technológiákat, amiket más játékok már használnak (Canvas, Three.js, Web Audio API). Új technológia behozható, ha indokolt – indokold röviden.
 
 ---
 
