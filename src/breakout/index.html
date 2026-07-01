@@ -133,7 +133,8 @@ document.addEventListener('keyup', e => { keys[e.key] = false; });
 
 function act() {
     AC.resume();
-    if (state === 'start' || state === 'dead') { state = 'play'; }
+    if (state === 'start') { state = 'play'; }
+    else if (state === 'dead') { initBall(); state = 'play'; }
     else if (state === 'levelup') { level++; initLevel(); initBall(); state = 'play'; }
     else if (state === 'over') { newGame(); state = 'play'; }
 }
