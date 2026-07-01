@@ -20,6 +20,7 @@ Indítás: `./start.sh` (Python http.server, port 8765).
 | src/snake/            | Snake                      | HTML5 Canvas, Web Audio  |
 | src/egri-csillagok/   | Egri Csillagok (1552)      | Three.js, Canvas         |
 | src/snake42/          | Snake 42                   | HTML5 Canvas, Web Audio, AI |
+| src/breakout/         | Breakout                   | HTML5 Canvas, Web Audio  |
 | src/erdei-kaland/     | Erdei Kaland               | HTML5 Canvas             |
 
 Landing page: `src/index.html` – kártya-rács, sötét téma, linkel az összes játékra.

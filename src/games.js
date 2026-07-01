@@ -76,6 +76,20 @@ const GAMES = [
     tags: ["Canvas", "Web Audio", "AI", "2-Player"],
   },
   {
+    id: "breakout",
+    emoji: "🧱",
+    thumb: "linear-gradient(135deg, #000814 0%, #001a2e 50%, #000a1a 100%)",
+    hu: {
+      title: "Breakout",
+      desc: "Törd szét az összes téglát! Klasszikus Breakout több pályával, neon részecske-effektekkel és pontrekord-követéssel.",
+    },
+    en: {
+      title: "Breakout",
+      desc: "Smash all the bricks! Classic Breakout with multiple levels, neon particle effects, and high score tracking.",
+    },
+    tags: ["Canvas", "Web Audio", "Classic"],
+  },
+  {
     id: "erdei-kaland",
     emoji: "🌲",
     thumb: "linear-gradient(135deg, #1d3322 0%, #3e7a44 50%, #1d3322 100%)",
