@@ -62,6 +62,20 @@ const GAMES = [
     tags: ["Canvas", "Historical", "Three.js"],
   },
   {
+    id: "snake42",
+    emoji: "🐍🐍",
+    thumb: "linear-gradient(135deg, #002218 0%, #0a0a1a 50%, #1a0022 100%)",
+    hu: {
+      title: "Snake 42",
+      desc: "Felturbózott kígyós játék! Küzdj meg a MI-vel (3 nehézségi szint, BFS algoritmus) vagy egy barátod ellen – egy billentyűzeten, két kígyóval.",
+    },
+    en: {
+      title: "Snake 42",
+      desc: "Snake, supercharged! Play vs AI (3 difficulty levels, BFS pathfinding) or challenge a friend on the same keyboard — two snakes, one board.",
+    },
+    tags: ["Canvas", "Web Audio", "AI", "2-Player"],
+  },
+  {
     id: "erdei-kaland",
     emoji: "🌲",
     thumb: "linear-gradient(135deg, #1d3322 0%, #3e7a44 50%, #1d3322 100%)",

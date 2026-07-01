@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <title>Snake</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a1a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: 'Segoe UI', sans-serif;
+      color: #eee;
+      overflow: hidden;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      margin-bottom: 10px;
+      letter-spacing: 4px;
+      background: linear-gradient(90deg, #00f5d4, #fee440, #f15bb5, #9b5de5);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 0 12px #f15bb580);
+    }
+
+    #scoreboard {
+      display: flex;
+      gap: 60px;
+      margin-bottom: 14px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      min-height: 1.6rem;
+    }
+    #p1score { color: #00f5d4; text-shadow: 0 0 10px #00f5d4aa; }
+    #p2score { color: #f15bb5; text-shadow: 0 0 10px #f15bb5aa; }
+
+    #canvas-wrap {
+      position: relative;
+      border-radius: 8px;
+      box-shadow: 0 0 40px #9b5de540, 0 0 80px #00f5d420;
+      border: 2px solid #333;
+    }
+    #canvas { display: block; border-radius: 6px; }
+
+    #info {
+      margin-top: 12px;
+      display: flex;
+      gap: 50px;
+      font-size: 0.9rem;
+      min-height: 1.8rem;
+    }
+    .tag {
+      padding: 4px 14px;
+      border-radius: 20px;
+    }
+    .p1info { color: #00f5d4; background: #00f5d415; border: 1px solid #00f5d430; }
+    .p2info { color: #f15bb5; background: #f15bb515; border: 1px solid #f15bb530; }
+
+    /* ── Overlay base ── */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.82);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      backdrop-filter: blur(4px);
+      z-index: 10;
+    }
+    .overlay.hidden { display: none; }
+
+    .overlay h2 {
+      font-size: 3rem;
+      letter-spacing: 3px;
+      background: linear-gradient(90deg, #fee440, #f15bb5, #9b5de5);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 0 16px #f15bb5);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { filter: drop-shadow(0 0 10px #f15bb5); }
+      50%       { filter: drop-shadow(0 0 28px #f15bb5cc); }
+    }
+    .overlay p { font-size: 1.2rem; color: #ccc; }
+
+    .btn {
+      padding: 13px 42px;
+      font-size: 1.1rem;
+      border: none;
+      border-radius: 30px;
+      cursor: pointer;
+      font-weight: bold;
+      letter-spacing: 1px;
+      transition: box-shadow 0.2s, transform 0.1s;
+      color: #fff;
+    }
+    .btn:hover { transform: scale(1.05); }
+    .btn-primary {
+      background: linear-gradient(135deg, #9b5de5, #f15bb5);
+      box-shadow: 0 0 20px #9b5de560;
+    }
+    .btn-primary:hover { box-shadow: 0 0 36px #f15bb5aa; }
+    .btn-secondary {
+      background: linear-gradient(135deg, #007a75, #00c9b1);
+      box-shadow: 0 0 20px #00c9b160;
+    }
+    .btn-secondary:hover { box-shadow: 0 0 36px #00f5d4aa; }
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid #555;
+      color: #aaa;
+      padding: 9px 28px;
+      font-size: 0.95rem;
+    }
+    .btn-ghost:hover, .btn-ghost.focused { border-color: #aaa; color: #eee; box-shadow: none; transform: none; }
+    .btn-primary.focused { box-shadow: 0 0 36px #f15bb5aa; transform: scale(1.05); }
+
+    /* ── Mode select ── */
+    #modeScreen .mode-btns {
+      display: flex;
+      gap: 24px;
+      margin-top: 8px;
+    }
+    .mode-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 28px 36px;
+      border-radius: 16px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.2s;
+      background: #ffffff08;
+    }
+    .mode-card:hover, .mode-card.focused { transform: scale(1.06); }
+    .mode-card.single { border-color: #00f5d440; }
+    .mode-card.single:hover, .mode-card.single.focused { border-color: #00f5d4; background: #00f5d410; box-shadow: 0 0 30px #00f5d430; }
+    .mode-card.multi  { border-color: #f15bb540; }
+    .mode-card.multi:hover,  .mode-card.multi.focused  { border-color: #f15bb5; background: #f15bb510; box-shadow: 0 0 30px #f15bb530; }
+    .mode-icon { font-size: 3rem; line-height: 1; }
+    .mode-title { font-size: 1.3rem; font-weight: bold; letter-spacing: 1px; }
+    .mode-sub   { font-size: 0.85rem; color: #888; }
+    .mode-card.single .mode-title { color: #00f5d4; }
+    .mode-card.multi  .mode-title { color: #f15bb5; }
+
+    /* ── Difficulty select ── */
+    #diffScreen .diff-btns {
+      display: flex;
+      gap: 18px;
+      margin-top: 8px;
+    }
+    .diff-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 22px 30px;
+      border-radius: 16px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.2s;
+      background: #ffffff08;
+      min-width: 120px;
+    }
+    .diff-card:hover, .diff-card.focused { transform: scale(1.07); }
+    .diff-card.easy   { border-color: #06d6a040; }
+    .diff-card.easy:hover,   .diff-card.easy.focused   { border-color: #06d6a0; background: #06d6a010; box-shadow: 0 0 28px #06d6a040; }
+    .diff-card.medium { border-color: #fee44040; }
+    .diff-card.medium:hover, .diff-card.medium.focused { border-color: #fee440; background: #fee44010; box-shadow: 0 0 28px #fee44040; }
+    .diff-card.hard   { border-color: #f15bb540; }
+    .diff-card.hard:hover,   .diff-card.hard.focused   { border-color: #f15bb5; background: #f15bb510; box-shadow: 0 0 28px #f15bb540; }
+    .diff-icon  { font-size: 2.2rem; line-height: 1; }
+    .diff-title { font-size: 1.1rem; font-weight: bold; letter-spacing: 1px; }
+    .diff-sub   { font-size: 0.8rem; color: #888; text-align: center; }
+    .diff-card.easy   .diff-title { color: #06d6a0; }
+    .diff-card.medium .diff-title { color: #fee440; }
+    .diff-card.hard   .diff-title { color: #f15bb5; }
+
+    /* ── Game over ── */
+    #gameOver .btn-row { display: flex; gap: 14px; }
+    #winRecord {
+      display: flex;
+      gap: 20px;
+      background: #ffffff08;
+      border: 1px solid #333;
+      border-radius: 14px;
+      padding: 12px 28px;
+      font-size: 1rem;
+    }
+    .wr-item { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .wr-label { font-size: 0.78rem; color: #888; letter-spacing: 1px; text-transform: uppercase; }
+    .wr-val   { font-size: 1.6rem; font-weight: bold; }
+    .wr-sub   { font-size: 0.78rem; color: #666; }
+    .wr-p1 .wr-val { color: #00f5d4; text-shadow: 0 0 8px #00f5d4aa; }
+    .wr-draw .wr-val { color: #aaa; }
+    .wr-p2 .wr-val { color: #f15bb5; text-shadow: 0 0 8px #f15bb5aa; }
+  </style>
+</head>
+<body>
+
+<h1>SNAKE</h1>
+
+<div id="scoreboard">
+  <span id="p1score"></span>
+  <span id="p2score"></span>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="canvas"></canvas>
+</div>
+
+<div id="info">
+  <span id="p1info" class="tag p1info"></span>
+  <span id="p2info" class="tag p2info"></span>
+</div>
+
+<!-- Mode select screen -->
+<div id="modeScreen" class="overlay">
+  <h2>SNAKE</h2>
+  <p>Válassz játékmódot!</p>
+  <div class="mode-btns">
+    <div class="mode-card single" id="singleBtn">
+      <div class="mode-icon">🐍</div>
+      <div class="mode-title">Egyjátékos</div>
+      <div class="mode-sub">Te vs. MI</div>
+    </div>
+    <div class="mode-card multi" id="multiBtn">
+      <div class="mode-icon">🐍🐍</div>
+      <div class="mode-title">Kétjátékos</div>
+      <div class="mode-sub">WASD vs. Nyilak</div>
+    </div>
+  </div>
+</div>
+
+<!-- Difficulty select screen -->
+<div id="diffScreen" class="overlay hidden">
+  <h2>NEHÉZSÉG</h2>
+  <p>Válassz szintet!</p>
+  <div class="diff-btns">
+    <div class="diff-card easy"   data-diff="easy">
+      <div class="diff-icon">🌱</div>
+      <div class="diff-title">Könnyű</div>
+      <div class="diff-sub">Az MI sokat hibázik</div>
+    </div>
+    <div class="diff-card medium" data-diff="medium">
+      <div class="diff-icon">⚡</div>
+      <div class="diff-title">Közepes</div>
+      <div class="diff-sub">Mérsékelt kihívás</div>
+    </div>
+    <div class="diff-card hard"   data-diff="hard">
+      <div class="diff-icon">💀</div>
+      <div class="diff-title">Nehéz</div>
+      <div class="diff-sub">Szinte hibátlan MI</div>
+    </div>
+  </div>
+</div>
+
+<!-- Game over screen -->
+<div id="gameOver" class="overlay hidden">
+  <h2 id="goTitle"></h2>
+  <p id="goMsg"></p>
+  <div id="winRecord"></div>
+  <div class="btn-row">
+    <button class="btn btn-primary" id="restartBtn">Újra</button>
+  </div>
+</div>
+
+<script>
+// ── Canvas ────────────────────────────────────────────────────────────────────
+const COLS = 40, ROWS = 30, CELL = 18;
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+canvas.width  = COLS * CELL;
+canvas.height = ROWS * CELL;
+
+// ── UI ────────────────────────────────────────────────────────────────────────
+const modeScreen = document.getElementById('modeScreen');
+const diffScreen = document.getElementById('diffScreen');
+const gameOver   = document.getElementById('gameOver');
+const goTitle    = document.getElementById('goTitle');
+const goMsg      = document.getElementById('goMsg');
+const p1ScoreEl  = document.getElementById('p1score');
+const p2ScoreEl  = document.getElementById('p2score');
+const p1InfoEl   = document.getElementById('p1info');
+const p2InfoEl   = document.getElementById('p2info');
+
+// ── Audio ─────────────────────────────────────────────────────────────────────
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function playTone(freq, type, duration, gainVal, delay = 0) {
+  const osc  = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime + delay);
+  gain.gain.setValueAtTime(gainVal, audioCtx.currentTime + delay);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + delay + duration);
+  osc.start(audioCtx.currentTime + delay);
+  osc.stop(audioCtx.currentTime + delay + duration + 0.01);
+}
+function sfxEat(player) {
+  const f = player === 1 ? 660 : 880;
+  playTone(f, 'sine', 0.08, 0.3); playTone(f * 1.5, 'sine', 0.08, 0.2, 0.05);
+}
+function sfxDie()   { [220,180,130].forEach((f,i) => playTone(f,'sawtooth',0.15+i*0.05,0.3,i*0.1)); }
+function sfxStart() { [330,440,550,660].forEach((f,i) => playTone(f,'sine',0.12,0.25,i*0.07)); }
+function sfxWin()   { [440,550,660,880].forEach((f,i) => playTone(f,'sine',0.18,0.3,i*0.09)); }
+
+// ── Colors ────────────────────────────────────────────────────────────────────
+const P1_COLORS = ['#00f5d4','#00c9b1','#00a896','#007a75'];
+const P2_COLORS = ['#f15bb5','#d9449e','#c02d87','#8a1460'];
+const P1_HEAD   = '#afffef';
+const P2_HEAD   = '#ffb3e0';
+const FOOD_COLORS = ['#fee440','#f15bb5','#9b5de5','#00bbf9','#fb5607','#8ecae6'];
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let gameMode = null;        // 'single' | 'multi'
+let difficulty = 'medium'; // 'easy' | 'medium' | 'hard'
+const AI_MISTAKE_RATE = { easy: 0.55, medium: 0.25, hard: 0.08 };
+const wins    = { p1: 0, p2: 0, draw: 0 };
+const records = { p1: 0, p2: 0 };
+let snake1 = [], snake2 = [];
+let dir1, dir2, nextDir1, nextDir2;
+let food = [], particles = [];
+let score1 = 0, score2 = 0;
+let gameRunning = false;
+let animFrame, lastTime = 0, foodColorIdx = 0;
+const SPEED = 115;
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+function initGame() {
+  snake1 = [{ x: 8, y: 15 }, { x: 7, y: 15 }, { x: 6, y: 15 }];
+  snake2 = [{ x: 32, y: 15 }, { x: 33, y: 15 }, { x: 34, y: 15 }];
+  dir1 = { x: 1, y: 0 };  nextDir1 = { ...dir1 };
+  dir2 = { x: -1, y: 0 }; nextDir2 = { ...dir2 };
+  score1 = score2 = 0;
+  food = []; particles = []; foodColorIdx = 0;
+  spawnFood(); spawnFood();
+  updateUI();
+}
+
+function updateUI() {
+  if (!gameMode) { p1ScoreEl.textContent = ''; p2ScoreEl.textContent = ''; return; }
+  p1ScoreEl.textContent = `▶ ${gameMode === 'single' ? 'Játékos' : 'J1 (WASD)'}: ${score1}`;
+  p2ScoreEl.textContent = `▶ ${gameMode === 'single' ? 'MI' : 'J2 (↑↓←→)'}: ${score2}`;
+  p1InfoEl.textContent = gameMode === 'single' ? 'Irányítás: WASD vagy ↑↓←→' : 'Játékos 1: W A S D';
+  p2InfoEl.textContent = gameMode === 'single' ? 'Ellenfél: Mesterséges Intelligencia' : 'Játékos 2: ↑ ↓ ← →';
+  p2InfoEl.style.display = 'inline-block';
+}
+
+function spawnFood() {
+  let pos, tries = 0;
+  do {
+    pos = { x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS) };
+    tries++;
+  } while (tries < 200 && (
+    snake1.some(s => s.x === pos.x && s.y === pos.y) ||
+    snake2.some(s => s.x === pos.x && s.y === pos.y) ||
+    food.some(f => f.x === pos.x && f.y === pos.y)
+  ));
+  pos.color = FOOD_COLORS[foodColorIdx++ % FOOD_COLORS.length];
+  food.push(pos);
+}
+
+// ── AI (BFS) ──────────────────────────────────────────────────────────────────
+function aiStep() {
+  const head = snake2[0];
+  const key  = p => `${p.x},${p.y}`;
+
+  // Build obstacle set (both snakes, excluding own tail which will move)
+  const obs = new Set();
+  snake1.forEach(s => obs.add(key(s)));
+  snake2.slice(1, -1).forEach(s => obs.add(key(s)));
+
+  // BFS to nearest food
+  const target = food.reduce((best, f) => {
+    const d = Math.abs(f.x - head.x) + Math.abs(f.y - head.y);
+    return (!best || d < best.d) ? { ...f, d } : best;
+  }, null);
+
+  const dirs = [{x:0,y:-1},{x:0,y:1},{x:-1,y:0},{x:1,y:0}];
+  const safe = dirs.filter(d => {
+    const nx = head.x + d.x, ny = head.y + d.y;
+    if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) return false;
+    return !obs.has(`${nx},${ny}`);
+  });
+  const noReverse = safe.filter(d => !(d.x === -dir2.x && d.y === -dir2.y));
+  const safeDirs  = noReverse.length ? noReverse : safe;
+
+  let chosen = null;
+  if (Math.random() < AI_MISTAKE_RATE[difficulty] && safeDirs.length) {
+    chosen = safeDirs[Math.floor(Math.random() * safeDirs.length)];
+  }
+
+  if (!chosen && target) {
+    const visited = new Set([key(head)]);
+    const queue = [{ x: head.x, y: head.y, first: null }];
+    outer: while (queue.length) {
+      const cur = queue.shift();
+      for (const d of dirs) {
+        const nx = cur.x + d.x, ny = cur.y + d.y;
+        const nk = `${nx},${ny}`;
+        if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue;
+        if (obs.has(nk) || visited.has(nk)) continue;
+        const first = cur.first ?? d;
+        if (nx === target.x && ny === target.y) { chosen = first; break outer; }
+        visited.add(nk);
+        queue.push({ x: nx, y: ny, first });
+      }
+    }
+  }
+
+  // Fallback: biztonságos irány
+  if (!chosen) chosen = safeDirs[0] ?? dir2;
+
+  nextDir2 = chosen;
+}
+
+// ── Game step ─────────────────────────────────────────────────────────────────
+function step() {
+  if (gameMode === 'single') aiStep();
+
+  dir1 = { ...nextDir1 };
+  dir2 = { ...nextDir2 };
+
+  const head1 = { x: snake1[0].x + dir1.x, y: snake1[0].y + dir1.y };
+  const head2 = { x: snake2[0].x + dir2.x, y: snake2[0].y + dir2.y };
+
+  const dead1 = isWallHit(head1) || isBodyHit(head1, snake1) || isBodyHit(head1, snake2);
+  const dead2 = isWallHit(head2) || isBodyHit(head2, snake2) || isBodyHit(head2, snake1);
+  const headOn = head1.x === head2.x && head1.y === head2.y;
+
+  if (dead1 || dead2 || headOn) {
+    if (dead1) spawnParticles(snake1[0].x, snake1[0].y, '#ff4444', 20);
+    if (dead2) spawnParticles(snake2[0].x, snake2[0].y, '#ff4444', 20);
+    sfxDie();
+    gameRunning = false;
+
+    const bothDead = headOn || (dead1 && dead2);
+    let title, msg, winner;
+
+    if (bothDead) {
+      if (snake1.length > snake2.length) {
+        title = gameMode === 'single' ? 'NYERTÉL!' : 'JÁTÉKOS 1 NYERT!';
+        msg = `Hosszabb kígyó dönt — J1: ${snake1.length} vs J2: ${snake2.length}`;
+        winner = 'p1'; sfxWin();
+      } else if (snake2.length > snake1.length) {
+        title = gameMode === 'single' ? 'MI NYERT!' : 'JÁTÉKOS 2 NYERT!';
+        msg = `Hosszabb kígyó dönt — J1: ${snake1.length} vs J2: ${snake2.length}`;
+        winner = 'p2';
+      } else {
+        title = 'DÖNTETLEN!';
+        msg = `Azonos hossz (${snake1.length})`;
+        winner = 'draw';
+      }
+    } else if (dead1) {
+      title = gameMode === 'single' ? 'MI NYERT!' : 'JÁTÉKOS 2 NYERT!';
+      msg = `Pontszám — ${gameMode === 'single' ? 'Te' : 'J1'}: ${score1}  ${gameMode === 'single' ? 'MI' : 'J2'}: ${score2}`;
+      winner = 'p2';
+    } else {
+      title = gameMode === 'single' ? 'NYERTÉL!' : 'JÁTÉKOS 1 NYERT!';
+      msg = `Pontszám — ${gameMode === 'single' ? 'Te' : 'J1'}: ${score1}  ${gameMode === 'single' ? 'MI' : 'J2'}: ${score2}`;
+      winner = 'p1'; sfxWin();
+    }
+
+    setTimeout(() => showGameOver(title, msg, winner), 350);
+    return;
+  }
+
+  snake1.unshift(head1);
+  snake2.unshift(head2);
+
+  if (eatFood(head1)) { score1++; sfxEat(1); spawnFood(); updateUI(); } else snake1.pop();
+  if (eatFood(head2)) { score2++; sfxEat(2); spawnFood(); updateUI(); } else snake2.pop();
+}
+
+function eatFood(head) {
+  const idx = food.findIndex(f => f.x === head.x && f.y === head.y);
+  if (idx !== -1) { spawnParticles(head.x, head.y, food[idx].color, 14); food.splice(idx, 1); return true; }
+  return false;
+}
+function isWallHit(p) { return p.x < 0 || p.x >= COLS || p.y < 0 || p.y >= ROWS; }
+function isBodyHit(p, s) { return s.some(b => b.x === p.x && b.y === p.y); }
+
+// ── Particles ─────────────────────────────────────────────────────────────────
+function spawnParticles(x, y, color, count) {
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2, sp = 1.5 + Math.random() * 3;
+    particles.push({ x: x*CELL+CELL/2, y: y*CELL+CELL/2, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp,
+      life: 1, decay: 0.04 + Math.random()*0.04, r: 3 + Math.random()*3, color });
+  }
+}
+function updateParticles() {
+  particles = particles.filter(p => p.life > 0);
+  particles.forEach(p => { p.x+=p.vx; p.y+=p.vy; p.vy+=0.1; p.life-=p.decay; p.r*=0.97; });
+}
+
+// ── Draw ──────────────────────────────────────────────────────────────────────
+function draw(ts = 0) {
+  ctx.fillStyle = '#0d0d20';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.strokeStyle = '#1a1a35'; ctx.lineWidth = 0.5;
+  for (let x = 0; x <= COLS; x++) { ctx.beginPath(); ctx.moveTo(x*CELL,0); ctx.lineTo(x*CELL,canvas.height); ctx.stroke(); }
+  for (let y = 0; y <= ROWS; y++) { ctx.beginPath(); ctx.moveTo(0,y*CELL); ctx.lineTo(canvas.width,y*CELL); ctx.stroke(); }
+
+  food.forEach((f, fi) => {
+    const cx = f.x*CELL+CELL/2, cy = f.y*CELL+CELL/2;
+    const pulse = 1 + 0.18 * Math.sin(ts/350 + fi*1.7);
+    const r = (CELL/2 - 2) * pulse;
+    const grd = ctx.createRadialGradient(cx,cy,0,cx,cy,r*2);
+    grd.addColorStop(0, f.color+'aa'); grd.addColorStop(1, f.color+'00');
+    ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(cx,cy,r*2,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = f.color; ctx.shadowColor = f.color; ctx.shadowBlur = 12;
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ffffff55'; ctx.beginPath(); ctx.arc(cx-r*.3,cy-r*.35,r*.28,0,Math.PI*2); ctx.fill();
+  });
+
+  drawSnake(snake1, P1_COLORS, P1_HEAD, '#00f5d4');
+  drawSnake(snake2, P2_COLORS, P2_HEAD, '#f15bb5');
+
+  updateParticles();
+  particles.forEach(p => {
+    ctx.globalAlpha = p.life; ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
+function drawSnake(snake, colors, headColor, glowColor) {
+  if (!snake || !snake.length) return;
+  snake.forEach((seg, i) => {
+    const isHead = i === 0, pad = isHead ? 1 : 2;
+    ctx.globalAlpha = Math.max(0.35, 1 - (i/snake.length)*0.65);
+    if (isHead) { ctx.shadowColor = glowColor; ctx.shadowBlur = 18; }
+    ctx.fillStyle = isHead ? headColor : segColor(colors, i, snake.length);
+    ctx.beginPath();
+    ctx.roundRect(seg.x*CELL+pad, seg.y*CELL+pad, CELL-pad*2, CELL-pad*2, isHead?5:4);
+    ctx.fill();
+    if (isHead) ctx.shadowBlur = 0;
+  });
+  ctx.globalAlpha = 1;
+
+  if (!snake.length) return;
+  const h = snake[0];
+  const dx = snake[1] ? h.x - snake[1].x : 1;
+  const dy = snake[1] ? h.y - snake[1].y : 0;
+  const cx = h.x*CELL+CELL/2, cy = h.y*CELL+CELL/2;
+  let e1, e2;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    e1={x:cx+dx*2, y:cy-4}; e2={x:cx+dx*2, y:cy+4};
+  } else {
+    e1={x:cx-4, y:cy+dy*2}; e2={x:cx+4, y:cy+dy*2};
+  }
+  [e1,e2].forEach(e => {
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(e.x,e.y,2.8,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(e.x+dx*.8,e.y+dy*.8,1.4,0,Math.PI*2); ctx.fill();
+  });
+}
+
+function segColor(colors, i, total) {
+  const t = Math.min(i / Math.max(total-1,1), 1);
+  const ci = t*(colors.length-1), lo=Math.floor(ci), hi=Math.min(lo+1,colors.length-1);
+  return lerpColor(colors[lo], colors[hi], ci-lo);
+}
+function lerpColor(a, b, t) {
+  const ah=parseInt(a.slice(1),16), bh=parseInt(b.slice(1),16);
+  const r=Math.round(((ah>>16)&0xff)+(((bh>>16)&0xff)-((ah>>16)&0xff))*t);
+  const g=Math.round(((ah>>8)&0xff)+(((bh>>8)&0xff)-((ah>>8)&0xff))*t);
+  const bl=Math.round((ah&0xff)+((bh&0xff)-(ah&0xff))*t);
+  return `rgb(${r},${g},${bl})`;
+}
+
+// ── Game loop ─────────────────────────────────────────────────────────────────
+function gameLoop(ts) {
+  if (ts - lastTime >= SPEED) {
+    if (gameRunning) step();
+    lastTime = ts;
+  }
+  draw(ts);
+  animFrame = requestAnimationFrame(gameLoop);
+}
+
+function startGame(mode) {
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  gameMode = mode;
+  initGame();
+  modeScreen.classList.add('hidden');
+  gameOver.classList.add('hidden');
+  gameRunning = true;
+  lastTime = 0;
+  sfxStart();
+  if (!animFrame) animFrame = requestAnimationFrame(gameLoop);
+}
+
+function showGameOver(title, msg, winner) {
+  // winner: 'p1' | 'p2' | 'draw'
+  if (winner) wins[winner]++;
+  if (snake1.length > records.p1) records.p1 = snake1.length;
+  if (snake2.length > records.p2) records.p2 = snake2.length;
+
+  goTitle.textContent = title;
+  goMsg.textContent   = msg;
+
+  const p1Label = gameMode === 'single' ? 'Te' : 'Játékos 1';
+  const p2Label = gameMode === 'single' ? 'MI'  : 'Játékos 2';
+  document.getElementById('winRecord').innerHTML = `
+    <div class="wr-item wr-p1">
+      <span class="wr-label">${p1Label}</span>
+      <span class="wr-val">${wins.p1}</span>
+      <span class="wr-sub">Rekord: ${records.p1}</span>
+    </div>
+    <div class="wr-item wr-draw">
+      <span class="wr-label">Döntetlen</span>
+      <span class="wr-val">${wins.draw}</span>
+    </div>
+    <div class="wr-item wr-p2">
+      <span class="wr-label">${p2Label}</span>
+      <span class="wr-val">${wins.p2}</span>
+      <span class="wr-sub">Rekord: ${records.p2}</span>
+    </div>
+  `;
+
+  gameOver.classList.remove('hidden');
+}
+
+function showMenu() {
+  gameRunning = false;
+  gameMode = null;
+  wins.p1 = wins.p2 = wins.draw = 0;
+  records.p1 = records.p2 = 0;
+  updateUI();
+  gameOver.classList.add('hidden');
+  diffScreen.classList.add('hidden');
+  modeScreen.classList.remove('hidden');
+}
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
+
+  // Módválasztó navigáció
+  if (!modeScreen.classList.contains('hidden')) {
+    if (e.key === 'ArrowLeft')  setModeFocus(modeFocus - 1);
+    if (e.key === 'ArrowRight') setModeFocus(modeFocus + 1);
+    if (e.key === 'Enter')      selectMode();
+    return;
+  }
+
+  // Nehézségválasztó navigáció
+  if (!diffScreen.classList.contains('hidden')) {
+    if (e.key === 'ArrowLeft')  setDiffFocus(diffFocus - 1);
+    if (e.key === 'ArrowRight') setDiffFocus(diffFocus + 1);
+    if (e.key === 'Enter')      selectDiff();
+    if (e.key === 'Escape')     { diffScreen.classList.add('hidden'); modeScreen.classList.remove('hidden'); }
+    return;
+  }
+
+  // Játék vége navigáció
+  if (!gameOver.classList.contains('hidden')) {
+    if (e.key === 'Enter')  document.getElementById('restartBtn').click();
+    if (e.key === 'Escape') showMenu();
+    return;
+  }
+
+  if (!gameRunning) return;
+
+  // Player 1: WASD
+  switch (e.key.toLowerCase()) {
+    case 'w': if (dir1.y!==1)  nextDir1={x:0,y:-1}; break;
+    case 's': if (dir1.y!==-1) nextDir1={x:0,y:1};  break;
+    case 'a': if (dir1.x!==1)  nextDir1={x:-1,y:0}; break;
+    case 'd': if (dir1.x!==-1) nextDir1={x:1,y:0};  break;
+  }
+  // Player 1 (single mode) also arrow keys; Player 2 (multi) arrow keys
+  if (gameMode === 'single') {
+    switch (e.key) {
+      case 'ArrowUp':    if (dir1.y!==1)  nextDir1={x:0,y:-1}; break;
+      case 'ArrowDown':  if (dir1.y!==-1) nextDir1={x:0,y:1};  break;
+      case 'ArrowLeft':  if (dir1.x!==1)  nextDir1={x:-1,y:0}; break;
+      case 'ArrowRight': if (dir1.x!==-1) nextDir1={x:1,y:0};  break;
+    }
+  } else {
+    switch (e.key) {
+      case 'ArrowUp':    if (dir2.y!==1)  nextDir2={x:0,y:-1}; break;
+      case 'ArrowDown':  if (dir2.y!==-1) nextDir2={x:0,y:1};  break;
+      case 'ArrowLeft':  if (dir2.x!==1)  nextDir2={x:-1,y:0}; break;
+      case 'ArrowRight': if (dir2.x!==-1) nextDir2={x:1,y:0};  break;
+    }
+  }
+});
+
+// ── Menu keyboard navigation ──────────────────────────────────────────────────
+const modeCards = Array.from(document.querySelectorAll('.mode-card'));
+const diffCards = Array.from(document.querySelectorAll('.diff-card'));
+let modeFocus = 0;
+let diffFocus = 0;
+
+function setModeFocus(idx) {
+  modeFocus = (idx + modeCards.length) % modeCards.length;
+  modeCards.forEach((c, i) => c.classList.toggle('focused', i === modeFocus));
+}
+function setDiffFocus(idx) {
+  diffFocus = (idx + diffCards.length) % diffCards.length;
+  diffCards.forEach((c, i) => c.classList.toggle('focused', i === diffFocus));
+}
+
+function selectMode() {
+  if (modeFocus === 0) {
+    modeScreen.classList.add('hidden');
+    diffScreen.classList.remove('hidden');
+    setDiffFocus(1); // közepes alapértelmezett
+  } else {
+    startGame('multi');
+  }
+}
+function selectDiff() {
+  difficulty = diffCards[diffFocus].dataset.diff;
+  diffScreen.classList.add('hidden');
+  startGame('single');
+}
+
+
+// Init focus on mode screen
+setModeFocus(0);
+
+document.getElementById('singleBtn').addEventListener('click', () => { setModeFocus(0); selectMode(); });
+document.getElementById('multiBtn').addEventListener('click',  () => { setModeFocus(1); selectMode(); });
+
+diffCards.forEach((card, i) => {
+  card.addEventListener('click', () => { setDiffFocus(i); selectDiff(); });
+});
+
+document.getElementById('restartBtn').addEventListener('click', () => startGame(gameMode));
+
+// Start render loop immediately (background animation)
+animFrame = requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
