@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Repülő Madár – Kerüld el a fákat!</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; overflow: hidden; background: #060e06; }
+    #wrap { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+    canvas { display: block; touch-action: none; }
+    #ctrl {
+      position: absolute; bottom: 18px; left: 0; right: 0;
+      display: flex; justify-content: space-between;
+      padding: 0 22px; z-index: 10; pointer-events: none;
+    }
+    .btn {
+      width: 86px; height: 86px; border-radius: 50%;
+      border: 3px solid rgba(80, 220, 100, 0.48);
+      background: rgba(0, 28, 10, 0.80);
+      color: #5be870; font-size: 30px;
+      display: flex; align-items: center; justify-content: center;
+      user-select: none; -webkit-user-select: none;
+      pointer-events: auto; cursor: pointer; transition: 0.08s;
+    }
+    .btn.on { background: rgba(0, 72, 30, 0.92); transform: scale(0.91); }
+  </style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="ctrl">
+    <div class="btn" id="bl">◀</div>
+    <div class="btn" id="br">▶</div>
+  </div>
+</div>
+<script>
+'use strict';
+
+/* ───────────── CANVAS ───────────── */
+const cvs = document.getElementById('c');
+const ctx  = cvs.getContext('2d');
+let W, H;
+function resize() {
+  W = cvs.width  = Math.min(window.innerWidth,  480);
+  H = cvs.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* ───────────── STATE ───────────── */
+let gs = 'title'; // 'title' | 'playing' | 'dead'
+let score = 0;
+let best  = +localStorage.getItem('rm-best') || 0;
+let spd, bgY, tick, spawnT, spawnGap;
+
+/* ───────────── BIRD ───────────── */
+const BR = 15; // collision radius
+const b = { x: 0, y: 0, vx: 0, wing: 0 };
+
+/* ───────────── TREES ───────────── */
+let trees = [];
+
+/* ───────────── PARTICLES ───────────── */
+let pts = [];
+function burst(x, y, col, n = 14) {
+  for (let i = 0; i < n; i++) {
+    const a = (Math.PI * 2 * i) / n + Math.random() * 0.4;
+    const s = 2 + Math.random() * 4;
+    pts.push({ x, y, vx: Math.cos(a)*s, vy: Math.sin(a)*s, r: 3+Math.random()*4, life: 1, col });
+  }
+}
+
+/* ───────────── AUDIO ───────────── */
+let ac;
+function tone(freq, type, dur, vol = 0.22, endFreq) {
+  if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+  if (ac.state === 'suspended') ac.resume();
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.connect(g); g.connect(ac.destination);
+  o.type = type; o.frequency.value = freq;
+  if (endFreq) {
+    o.frequency.setValueAtTime(freq, ac.currentTime);
+    o.frequency.exponentialRampToValueAtTime(endFreq, ac.currentTime + dur);
+  }
+  g.gain.setValueAtTime(vol, ac.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + dur);
+  o.start(); o.stop(ac.currentTime + dur);
+}
+const sndCrash  = () => tone(160, 'sawtooth', 0.4, 0.45, 40);
+const sndScore  = () => { tone(440, 'sine', 0.08, 0.18); setTimeout(() => tone(660, 'sine', 0.1, 0.18), 80); };
+const sndWhoosh = () => tone(700, 'sawtooth', 0.1, 0.10, 100);
+
+/* ───────────── INPUT ───────────── */
+const K = { l: false, r: false };
+window.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft'  || e.key === 'a') K.l = true;
+  if (e.key === 'ArrowRight' || e.key === 'd') K.r = true;
+  if ((e.key === ' ' || e.key === 'Enter') && gs !== 'playing') init();
+  if ([' ', 'ArrowLeft', 'ArrowRight'].includes(e.key)) e.preventDefault();
+});
+window.addEventListener('keyup', e => {
+  if (e.key === 'ArrowLeft'  || e.key === 'a') K.l = false;
+  if (e.key === 'ArrowRight' || e.key === 'd') K.r = false;
+});
+window.addEventListener('mouseup', () => { K.l = false; K.r = false; });
+
+function bindBtn(id, key) {
+  const el = document.getElementById(id);
+  const on  = e => { K[key] = true;  el.classList.add('on');    e.preventDefault(); };
+  const off = ()  => { K[key] = false; el.classList.remove('on'); };
+  el.addEventListener('touchstart',  on,  { passive: false });
+  el.addEventListener('touchend',    off, { passive: false });
+  el.addEventListener('touchcancel', off, { passive: false });
+  el.addEventListener('mousedown',   on,  { passive: false });
+  el.addEventListener('mouseup',     off);
+}
+bindBtn('bl', 'l');
+bindBtn('br', 'r');
+cvs.addEventListener('click', () => { if (gs !== 'playing') init(); });
+
+/* ───────────── INIT ───────────── */
+function init() {
+  gs = 'playing'; score = 0; tick = 0;
+  spd = 1.5; bgY = 0; spawnT = 0; spawnGap = 120;
+  b.x = W / 2; b.y = H * 0.74; b.vx = 0; b.wing = 0;
+  trees = []; pts = [];
+}
+
+/* ───────────── SPAWN TREE ───────────── */
+function spawn() {
+  /* Gate: two trees with a flyable gap — appears after score > 8 */
+  if (score > 8 && Math.random() < 0.28) {
+    const gapW  = BR * 4 + 10 + Math.random() * 38; // 70–108 px gap
+    const gapCx = 120 + Math.random() * (W - 240);   // safe horizontal range
+    const r1 = 20 + Math.random() * 16;
+    const r2 = 20 + Math.random() * 16;
+    const lx = gapCx - gapW / 2 - r1; // left tree center
+    const rx = gapCx + gapW / 2 + r2; // right tree center
+    if (lx - r1 > 5 && rx + r2 < W - 5) {
+      trees.push({ x: lx, y: -55, r: r1, done: false });
+      trees.push({ x: rx, y: -55, r: r2, done: false });
+      return;
+    }
+  }
+  /* Single tree */
+  const r = 20 + Math.random() * 24;
+  trees.push({ x: r + 10 + Math.random() * (W - 2*(r+10)), y: -55, r, done: false });
+}
+
+/* ───────────── UPDATE ───────────── */
+function update() {
+  tick++;
+  bgY = (bgY + spd * 0.65) % 60;
+
+  /* Folyamatos gyorsulás — minden frame-ben kicsit nő a sebesség */
+  spd      = Math.min(10, spd + 0.0012);
+  spawnGap = Math.max(42, spawnGap - 0.04);
+
+  /* Bird movement */
+  if (K.l) b.vx -= 0.55;
+  if (K.r) b.vx += 0.55;
+  if (!K.l && !K.r) b.vx *= 0.80;
+  b.vx = Math.max(-8, Math.min(8, b.vx));
+  b.x  = Math.max(BR + 5, Math.min(W - BR - 5, b.x + b.vx));
+  b.wing += 0.16;
+
+  /* Spawn */
+  if (++spawnT >= spawnGap) { spawn(); spawnT = 0; }
+
+  /* Trees */
+  for (let i = trees.length - 1; i >= 0; i--) {
+    const t = trees[i];
+    t.y += spd;
+    const dist = Math.hypot(b.x - t.x, b.y - t.y);
+
+    /* Collision — 1 second grace at start */
+    if (tick > 60 && dist < BR + t.r - 4) {
+      burst(b.x, b.y, '#ffe84a', 22);
+      burst(t.x, t.y, '#3e7a28', 14);
+      sndCrash();
+      if (score > best) { best = score; localStorage.setItem('rm-best', best); }
+      gs = 'dead';
+      return;
+    }
+
+    /* Near-miss whoosh */
+    if (!t.done && !t._w && Math.abs(b.y - t.y) < 55 && dist < BR + t.r + 38) {
+      sndWhoosh(); t._w = true;
+    }
+
+    /* Score: tree fully passed */
+    if (!t.done && t.y > b.y + BR) {
+      t.done = true; score++;
+      if (score % 5 === 0) sndScore();
+    }
+
+    if (t.y > H + 70) trees.splice(i, 1);
+  }
+
+  /* Particles */
+  tickPts(0.03);
+}
+
+function tickPts(decay) {
+  for (let i = pts.length - 1; i >= 0; i--) {
+    const p = pts[i];
+    p.x += p.vx; p.y += p.vy; p.vy += 0.12;
+    p.life -= decay;
+    if (p.life <= 0) pts.splice(i, 1);
+  }
+}
+
+/* ───────────── DRAW: BACKGROUND ───────────── */
+function drawBg() {
+  ctx.fillStyle = '#0a1a0c';
+  ctx.fillRect(0, 0, W, H);
+
+  /* Scrolling horizontal motion lines */
+  ctx.strokeStyle = 'rgba(40,110,40,0.20)';
+  ctx.lineWidth = 1;
+  for (let y = bgY - 60; y < H + 60; y += 60) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+  /* Static vertical grid */
+  ctx.strokeStyle = 'rgba(20,60,20,0.12)';
+  for (let x = 0; x < W; x += 60) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+}
+
+/* ───────────── DRAW: TREE ───────────── */
+function drawTree(t) {
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,.55)';
+  ctx.shadowBlur = 10; ctx.shadowOffsetX = 5; ctx.shadowOffsetY = 5;
+
+  const g = ctx.createRadialGradient(t.x - t.r*.25, t.y - t.r*.25, 0, t.x, t.y, t.r);
+  g.addColorStop(0,   '#74c44a');
+  g.addColorStop(0.6, '#3e7a28');
+  g.addColorStop(1,   '#1c3e10');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(t.x, t.y, t.r, 0, Math.PI*2); ctx.fill();
+
+  ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+  ctx.fillStyle = '#3a1e08';
+  ctx.beginPath(); ctx.arc(t.x, t.y, t.r * .3, 0, Math.PI*2); ctx.fill();
+
+  ctx.fillStyle = 'rgba(145,245,95,.18)';
+  ctx.beginPath(); ctx.arc(t.x - t.r*.28, t.y - t.r*.3, t.r*.42, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+/* ───────────── DRAW: BIRD ───────────── */
+function drawBird() {
+  const { x, y, wing, vx } = b;
+  const wf = Math.sin(wing) * 8;
+  const sq = 1 + Math.abs(vx) * 0.014; // body squish when banking
+
+  ctx.save();
+  ctx.shadowColor = 'rgba(255,215,0,.55)'; ctx.shadowBlur = 18;
+
+  /* Wings */
+  ctx.fillStyle = '#e8bc18';
+  ctx.beginPath(); ctx.ellipse(x-15, y+wf, 14*sq, 7/sq, -0.28, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(x+15, y-wf, 14*sq, 7/sq,  0.28, 0, Math.PI*2); ctx.fill();
+
+  /* Body */
+  ctx.fillStyle = '#ffd700';
+  ctx.beginPath(); ctx.ellipse(x, y, 13, 10, 0, 0, Math.PI*2); ctx.fill();
+
+  /* Beak — points up (= direction of travel) */
+  ctx.fillStyle = '#ff8c00';
+  ctx.beginPath();
+  ctx.moveTo(x-4, y-10); ctx.lineTo(x+4, y-10); ctx.lineTo(x, y-19);
+  ctx.closePath(); ctx.fill();
+
+  /* Eye */
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#1a0a00';
+  ctx.beginPath(); ctx.arc(x-4, y-2, 3, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(x-3, y-3, 1.4, 0, Math.PI*2); ctx.fill();
+
+  ctx.restore();
+}
+
+/* ───────────── DRAW: PARTICLES ───────────── */
+function drawPts() {
+  pts.forEach(p => {
+    ctx.save();
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.col;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  });
+}
+
+/* ───────────── DRAW: HUD ───────────── */
+function drawHUD() {
+  ctx.save();
+  ctx.font = '14px "Press Start 2P"';
+  ctx.fillStyle = '#5be870'; ctx.shadowColor = '#5be870'; ctx.shadowBlur = 8;
+  ctx.fillText(`⭐ ${score}`, 14, 36);
+  ctx.shadowBlur = 0; ctx.fillStyle = '#446644';
+  ctx.font = '9px "Press Start 2P"';
+  ctx.fillText(`rekord: ${best}`, 14, 56);
+  ctx.restore();
+}
+
+/* ───────────── DRAW: OVERLAY ───────────── */
+function drawOverlay(titleCol, titleRows, bodyRows) {
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,8,0,0.74)'; ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = 'center';
+
+  const FS = Math.min(24, W / 16);
+  let y = H * 0.22;
+
+  titleRows.forEach(row => {
+    ctx.font = `bold ${FS}px "Press Start 2P"`;
+    ctx.fillStyle = titleCol; ctx.shadowColor = titleCol; ctx.shadowBlur = 18;
+    ctx.fillText(row, W / 2, y); y += FS * 2.2;
+  });
+
+  ctx.shadowBlur = 0;
+  y += 8;
+  bodyRows.forEach(row => {
+    ctx.fillStyle = row.col || '#aaffcc';
+    ctx.font = `${Math.min(10, W/46)}px "Press Start 2P"`;
+    ctx.fillText(row.text, W / 2, y); y += 28;
+  });
+
+  /* Pulsing start prompt */
+  const pulse = 0.7 + 0.3 * Math.sin(Date.now() / 380);
+  ctx.globalAlpha = pulse;
+  ctx.fillStyle = '#5be870'; ctx.shadowColor = '#5be870'; ctx.shadowBlur = 10;
+  ctx.font = '9px "Press Start 2P"';
+  ctx.fillText('[ SPACE / ENTER / KOPPINTS ]', W / 2, H * 0.88);
+
+  ctx.restore();
+}
+
+/* ───────────── MAIN LOOP ───────────── */
+function loop() {
+  if (gs === 'playing') {
+    update();
+  } else if (gs === 'dead') {
+    tickPts(0.02); // particles keep moving on game-over screen
+  }
+
+  drawBg();
+  trees.forEach(drawTree);
+
+  if (gs === 'playing') {
+    drawBird();
+    drawPts();
+    drawHUD();
+
+  } else if (gs === 'title') {
+    drawOverlay('#5be870', ['🐦 REPÜLŐ', 'MADÁR'], [
+      { text: 'Kerüld el a fákat!' },
+      { text: '◀  ▶  nyilak  /  gombok' },
+      ...(best > 0 ? [{ text: `Rekord: ${best} fa`, col: '#ffd700' }] : []),
+    ]);
+
+  } else { // dead
+    drawPts();
+    const isNew = score > 0 && score >= best;
+    drawOverlay('#ff3c4a', ['BUMM! 💥'], [
+      { text: `Elkerült fák: ${score}` },
+      ...(isNew ? [{ text: '🏆 ÚJ REKORD!', col: '#ffd700' }] : []),
+      { text: `Legjobb: ${best} fa`, col: '#557a55' },
+    ]);
+  }
+
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>

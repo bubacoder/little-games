@@ -90,6 +90,48 @@ const GAMES = [
     tags: ["Canvas", "Web Audio", "Classic"],
   },
   {
+    id: "szamolas-ut",
+    emoji: "🧮",
+    thumb: "linear-gradient(135deg, #080818 0%, #0a1a2e 40%, #1a0a2e 100%)",
+    hu: {
+      title: "Matekos Út",
+      desc: "Vezess egy téglalapot az úton! Gyűjts matekos jeleket (+, -, ×, ÷) hogy változtasd a szélességed – szűk részen légy keskeny, lyuknál légy széles!",
+    },
+    en: {
+      title: "Math Road",
+      desc: "Drive a rectangle down the road! Collect math signs (+, -, ×, ÷) to change your width — squeeze through narrow gaps, bridge over holes!",
+    },
+    tags: ["Canvas", "Web Audio", "Math"],
+  },
+  {
+    id: "repulo-3d",
+    emoji: "🐦",
+    thumb: "linear-gradient(160deg, #1a4a7a 0%, #2a7a3a 55%, #1a3a1a 100%)",
+    hu: {
+      title: "Repülő Madár 3D",
+      desc: "Repülj egy 3D erdőn át madárként! Valódi fényhatások, árnyékok és élethű fenyőfák. Kerüld el a fákat balra-jobbra!",
+    },
+    en: {
+      title: "Flying Bird 3D",
+      desc: "Fly through a 3D forest as a bird! Real lighting, shadows and lifelike pine trees. Dodge the trees left and right!",
+    },
+    tags: ["Three.js", "3D", "Web Audio", "Dodge"],
+  },
+  {
+    id: "repulo-madar",
+    emoji: "🐦",
+    thumb: "linear-gradient(135deg, #060e06 0%, #0a2010 50%, #061406 100%)",
+    hu: {
+      title: "Repülő Madár",
+      desc: "Madárként repülsz felfelé, és fák jönnek szembe! Nyomj balra/jobbra, hogy kitérj előlük. Minél messzebb jutsz, annál gyorsabb lesz!",
+    },
+    en: {
+      title: "Flying Bird",
+      desc: "You fly upward as a bird while trees rush toward you! Press left/right to dodge them. The further you go, the faster it gets!",
+    },
+    tags: ["Canvas", "Web Audio", "Dodge"],
+  },
+  {
     id: "erdei-kaland",
     emoji: "🌲",
     thumb: "linear-gradient(135deg, #1d3322 0%, #3e7a44 50%, #1d3322 100%)",

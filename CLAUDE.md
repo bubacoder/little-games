@@ -22,6 +22,9 @@ Indítás: `./start.sh` (Python http.server, port 8765).
 | src/snake42/          | Snake 42                   | HTML5 Canvas, Web Audio, AI |
 | src/breakout/         | Breakout                   | HTML5 Canvas, Web Audio  |
 | src/erdei-kaland/     | Erdei Kaland               | HTML5 Canvas             |
+| src/szamolas-ut/      | Matekos Út                 | HTML5 Canvas, Web Audio  |
+| src/repulo-madar/     | Repülő Madár               | HTML5 Canvas, Web Audio  |
+| src/repulo-3d/        | Repülő Madár 3D            | Three.js, Web Audio      |
 
 Landing page: `src/index.html` – kártya-rács, sötét téma, linkel az összes játékra.
 Játék-adatok: `src/games.js` – kétnyelvű (hu/en) adatfájl, innen tölti be az index a kártyákat.

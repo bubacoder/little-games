@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Matekos Út</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #000; overflow: hidden; touch-action: none; user-select: none; }
+canvas { display: block; position: fixed; top: 0; left: 0; }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+
+const cv  = document.getElementById('c');
+const ctx = cv.getContext('2d');
+
+// ── Layout (all values computed from screen size) ───────────────
+let W, H;
+let RL, RR, RW;        // road left/right/width (px)
+let PY, PH;            // player center-y, height
+let WMIN, WMAX;        // min/max player width
+let BTN_Y, BTN_H;      // button zone top, height
+let MOP_R;             // math-op circle radius
+let FSS, FSM, FSL;     // font sizes: small, medium, large
+
+function resize() {
+  W = cv.width  = window.innerWidth;
+  H = cv.height = window.innerHeight;
+
+  BTN_H = Math.round(Math.min(H * 0.20, 130));
+  BTN_Y = H - BTN_H;
+
+  RL = Math.round(W * 0.13);
+  RR = Math.round(W * 0.87);
+  RW = RR - RL;
+
+  PY  = Math.round(BTN_Y - H * 0.07);
+  PH  = Math.round(Math.max(28, H * 0.057));
+  WMIN = 14;
+  WMAX = RW - 8;
+
+  MOP_R = Math.round(Math.max(20, RW * 0.090));
+
+  FSS = Math.max(10, Math.round(H * 0.019)); // ~16px on phone
+  FSM = Math.max(13, Math.round(H * 0.026)); // ~22px on phone
+  FSL = Math.max(22, Math.round(H * 0.052)); // ~44px on phone
+
+  if (gs === 'playing') {
+    px = W / 2;
+    pw  = Math.min(pw,  WMAX);
+    pwT = Math.min(pwT, WMAX);
+  } else {
+    px = W / 2;
+  }
+}
+
+// ── Audio ───────────────────────────────────────────────────────
+let ac;
+function ensureAudio() {
+  if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+}
+function tone(f1, f2, dur, type = 'sine', vol = 0.3) {
+  if (!ac) return;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.connect(g); g.connect(ac.destination);
+  o.type = type;
+  o.frequency.setValueAtTime(f1, ac.currentTime);
+  if (f2) o.frequency.exponentialRampToValueAtTime(f2, ac.currentTime + dur);
+  g.gain.setValueAtTime(vol, ac.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + dur);
+  o.start(); o.stop(ac.currentTime + dur);
+}
+const sndCollect = () => tone(440, 880, 0.14);
+const sndFail    = () => tone(280, 45, 0.55, 'sawtooth', 0.45);
+const sndPass    = () => [523, 659, 784].forEach((f, i) => setTimeout(() => tone(f, null, 0.14), i * 75));
+
+// ── Math ops ────────────────────────────────────────────────────
+// fn closures use WMAX by reference → always uses current value
+const MOPS = [
+  { lbl: '+20', fn: w => Math.min(w + 20, WMAX), pos: true,  col: '#00ffcc' },
+  { lbl: '+35', fn: w => Math.min(w + 35, WMAX), pos: true,  col: '#00ff88' },
+  { lbl: '×2',  fn: w => Math.min(w * 2,  WMAX), pos: true,  col: '#66ff44' },
+  { lbl: '-15', fn: w => Math.max(w - 15,  WMIN), pos: false, col: '#ff88cc' },
+  { lbl: '-25', fn: w => Math.max(w - 25,  WMIN), pos: false, col: '#ff66aa' },
+  { lbl: '÷2',  fn: w => Math.max(w / 2,   WMIN), pos: false, col: '#ff44aa' },
+];
+
+// ── State ───────────────────────────────────────────────────────
+let gs = 'start';
+let px, pw, pwT;
+let obs, mops;
+let sc, baseSpd, frame, scrollY, hi, nextObs, nextMop;
+hi = 0;
+const keys = {};
+
+function initGame() {
+  resize(); // ensure layout is fresh
+  px   = W / 2;
+  pw   = Math.round(RW * 0.27);
+  pwT  = pw;
+  obs  = []; mops = [];
+  sc = 0; baseSpd = 1.2; frame = 0; scrollY = 0;
+  nextObs = H * 0.45; nextMop = H * 0.18;
+  gs = 'playing';
+}
+
+// ── Input: keyboard ─────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if ((e.key === 'Enter' || e.key === ' ') && gs !== 'playing') {
+    ensureAudio(); initGame();
+  }
+  if ([' ','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))
+    e.preventDefault();
+});
+document.addEventListener('keyup', e => { keys[e.key] = false; });
+
+// ── Input: touch on canvas ──────────────────────────────────────
+// Button zones (4 buttons across the bottom strip)
+function btnOf(clientX) {
+  const q = (clientX / W) * 4; // 0–4
+  if (q < 1)   return 'ArrowLeft';
+  if (q < 1.9) return 'ArrowDown';
+  if (q < 2.9) return 'ArrowUp';
+  return 'ArrowRight';
+}
+
+const ptrMap = new Map();
+
+cv.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  if (gs !== 'playing') { ensureAudio(); initGame(); return; }
+  if (e.clientY >= BTN_Y) {
+    const btn = btnOf(e.clientX);
+    ptrMap.set(e.pointerId, btn);
+    keys[btn] = true;
+  }
+});
+cv.addEventListener('pointermove', e => {
+  if (!ptrMap.has(e.pointerId)) return;
+  e.preventDefault();
+  if (e.clientY < BTN_Y) return;
+  const old = ptrMap.get(e.pointerId);
+  const nw  = btnOf(e.clientX);
+  if (old !== nw) { keys[old] = false; keys[nw] = true; ptrMap.set(e.pointerId, nw); }
+});
+function relBtn(e) {
+  const btn = ptrMap.get(e.pointerId);
+  if (btn) { keys[btn] = false; ptrMap.delete(e.pointerId); }
+}
+cv.addEventListener('pointerup',     e => { e.preventDefault(); relBtn(e); });
+cv.addEventListener('pointercancel', e => relBtn(e));
+
+// ── Spawning ────────────────────────────────────────────────────
+function spawnLinkedMop(y, positive) {
+  const strongest = MOPS.find(m => m.pos === positive && (m.lbl === '×2' || m.lbl === '÷2'));
+  const op = strongest || MOPS.filter(m => m.pos === positive)[0];
+  mops.push({ x: RL + MOP_R + Math.random() * (RW - MOP_R * 2), y, op, alive: true });
+}
+
+function spawnMop(y) {
+  const op = MOPS[Math.floor(Math.random() * MOPS.length)];
+  mops.push({ x: RL + MOP_R + Math.random() * (RW - MOP_R * 2), y, op, alive: true });
+}
+
+function spawnObs(y) {
+  const ref = Math.max(WMIN * 2, Math.min(WMAX, pwT));
+  if (Math.random() < 0.5) {
+    // Narrow wall: gap 55–75% of current width (guaranteed ÷2 spawns before it)
+    const gw = Math.max(30, Math.min(RW - 20, Math.round(ref * (0.55 + Math.random() * 0.20))));
+    const gx = RL + Math.random() * (RW - gw);
+    obs.push({ t: 'n', y, h: Math.round(H * 0.050), gx, gw, hit: false, done: false });
+    spawnLinkedMop(y + H * 0.22, false);
+    if (Math.random() < 0.55) spawnLinkedMop(y + H * 0.42, false);
+  } else {
+    // Hole: requires 130–185% of current width (guaranteed ×2 spawns before it)
+    const rw = Math.max(50, Math.min(WMAX, Math.round(ref * (1.30 + Math.random() * 0.55))));
+    obs.push({ t: 'h', y, h: Math.round(H * 0.065), rw, hit: false, done: false });
+    spawnLinkedMop(y + H * 0.22, true);
+    if (Math.random() < 0.55) spawnLinkedMop(y + H * 0.42, true);
+  }
+}
+
+// ── Update ──────────────────────────────────────────────────────
+function update() {
+  if (gs !== 'playing') return;
+  frame++;
+  baseSpd = 1.2 + frame / 2400;
+  const mult  = keys['ArrowUp'] ? 2.2 : keys['ArrowDown'] ? 0.4 : 1;
+  const speed = baseSpd * mult;
+  scrollY += speed;
+
+  const ms = 4 + baseSpd * 0.35;
+  if (keys['ArrowLeft'])  px -= ms;
+  if (keys['ArrowRight']) px += ms;
+  px = Math.max(RL + pw / 2, Math.min(RR - pw / 2, px));
+
+  pw += (pwT - pw) * 0.13;
+
+  if (scrollY >= nextMop) {
+    spawnMop(-MOP_R * 2);
+    nextMop = scrollY + H * 0.14 + Math.random() * H * 0.10;
+  }
+  if (scrollY >= nextObs) {
+    spawnObs(-H * 0.10);
+    nextObs = scrollY + H * 0.42 + Math.random() * H * 0.22;
+  }
+
+  obs.forEach(o => o.y += speed);
+  mops.forEach(m => m.y += speed);
+
+  // Collect ops
+  mops.forEach(m => {
+    if (!m.alive) return;
+    if (Math.abs(m.x - px) < pw / 2 + MOP_R && Math.abs(m.y - PY) < PH / 2 + MOP_R) {
+      m.alive = false;
+      pwT = m.op.fn(pw);
+      sc += 10; sndCollect();
+    }
+  });
+
+  // Collision
+  const pL = px - pw / 2, pR = px + pw / 2;
+  const pT = PY - PH / 2, pB = PY + PH / 2;
+  for (const o of obs) {
+    if (o.hit || o.done) continue;
+    if (o.y + o.h < pT || o.y > pB) continue;
+    if (o.t === 'n') {
+      if (pL < o.gx || pR > o.gx + o.gw) {
+        o.hit = true; gs = 'dead'; hi = Math.max(hi, sc); sndFail(); return;
+      }
+    } else {
+      if (pw < o.rw) {
+        o.hit = true; gs = 'dead'; hi = Math.max(hi, sc); sndFail(); return;
+      }
+    }
+  }
+  obs.forEach(o => {
+    if (!o.hit && !o.done && o.y > PY + PH / 2) { o.done = true; sc += 50; sndPass(); }
+  });
+
+  if (frame % 30 === 0) sc++;
+
+  obs  = obs.filter(o => o.y < H + 80);
+  mops = mops.filter(m => m.alive && m.y < H + 60);
+}
+
+// ── Draw ────────────────────────────────────────────────────────
+function draw() {
+  // Full black background (covers areas outside road)
+  ctx.fillStyle = '#08081a'; ctx.fillRect(0, 0, W, H);
+
+  // Terrain strips
+  ctx.fillStyle = '#0c180c';
+  ctx.fillRect(0, 0, RL, BTN_Y);
+  ctx.fillRect(RR, 0, W - RR, BTN_Y);
+
+  // Road surface
+  ctx.fillStyle = '#111827'; ctx.fillRect(RL, 0, RW, BTN_Y);
+
+  // Road edges
+  ctx.shadowColor = '#00ff88'; ctx.shadowBlur = 10;
+  ctx.strokeStyle = '#00ff88'; ctx.lineWidth = Math.max(2, W * 0.005);
+  ctx.beginPath(); ctx.moveTo(RL, 0); ctx.lineTo(RL, BTN_Y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(RR, 0); ctx.lineTo(RR, BTN_Y); ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Animated center dashes
+  const dash = Math.round(H * 0.032);
+  ctx.setLineDash([dash, Math.round(dash * 0.72)]);
+  ctx.lineDashOffset = -(scrollY % (dash * 1.72));
+  ctx.strokeStyle = 'rgba(255,255,255,0.10)'; ctx.lineWidth = Math.max(1, W * 0.003);
+  ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, BTN_Y); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Obstacles
+  obs.forEach(o => { if (o.t === 'n') drawNarrow(o); else drawHole(o); });
+
+  // Math ops
+  mops.forEach(m => { if (m.alive) drawMop(m); });
+
+  // Warning banner (above player)
+  drawWarning();
+
+  // Player
+  drawPlayer();
+
+  // HUD (on top)
+  drawHUD();
+
+  // Button strip
+  drawButtons();
+
+  // Overlay screens
+  if (gs !== 'playing') drawOverlay();
+}
+
+function drawHUD() {
+  ctx.fillStyle = 'rgba(0,0,0,0.60)'; ctx.fillRect(0, 0, W, FSM * 2.4);
+  ctx.font = `${FSM}px "Press Start 2P"`;
+  ctx.textBaseline = 'middle';
+  const cy = FSM * 1.2;
+  ctx.fillStyle = '#00ff88'; ctx.textAlign = 'left';
+  ctx.fillText('PONT: ' + sc, RL + 6, cy);
+  ctx.textAlign = 'right';
+  ctx.fillText(Math.round(pw) + 'px', RR - 6, cy);
+}
+
+function drawNarrow(o) {
+  const col = o.hit ? '#ff2222' : '#ff8800';
+  ctx.shadowColor = col; ctx.shadowBlur = 16; ctx.fillStyle = col;
+  if (o.gx > RL)         ctx.fillRect(RL, o.y, o.gx - RL, o.h);
+  if (o.gx + o.gw < RR) ctx.fillRect(o.gx + o.gw, o.y, RR - (o.gx + o.gw), o.h);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#ffe066'; ctx.font = `${FSS}px "Press Start 2P"`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('↔ ' + Math.round(o.gw) + 'px', o.gx + o.gw / 2, o.y + o.h / 2);
+}
+
+function drawHole(o) {
+  ctx.fillStyle = '#010112'; ctx.fillRect(RL, o.y, RW, o.h);
+  for (let i = 0; i < 7; i++)
+    ctx.fillRect(RL + (i * 53 + 9) % RW, o.y + (i % 3) * (o.h / 3) + 4, 3, 3);
+  const col = o.hit ? '#ff2222' : '#cc00ff';
+  ctx.shadowColor = col; ctx.shadowBlur = 16;
+  ctx.strokeStyle = col; ctx.lineWidth = 3;
+  ctx.strokeRect(RL + 2, o.y, RW - 4, o.h);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#dd88ff'; ctx.font = `${FSS}px "Press Start 2P"`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('≥ ' + Math.round(o.rw) + 'px', W / 2, o.y + o.h / 2);
+}
+
+function drawMop(m) {
+  ctx.save(); ctx.translate(m.x, m.y);
+  ctx.shadowColor = m.op.col; ctx.shadowBlur = 20;
+  ctx.beginPath(); ctx.arc(0, 0, MOP_R, 0, Math.PI * 2);
+  ctx.fillStyle = m.op.pos ? '#001e2e' : '#2e001e'; ctx.fill();
+  ctx.strokeStyle = m.op.col; ctx.lineWidth = Math.max(2, MOP_R * 0.12); ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = m.op.col;
+  ctx.font = `bold ${Math.round(MOP_R * 0.52)}px "Press Start 2P"`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(m.op.lbl, 0, 0);
+  ctx.restore();
+}
+
+function drawWarning() {
+  const next = obs.find(o => !o.done && !o.hit && o.y < H * 0.55);
+  if (!next) return;
+  let txt, col, ok;
+  if (next.t === 'n') {
+    ok  = pw <= next.gw + 3; col = ok ? '#00ff88' : '#ff8800';
+    txt = (ok ? '✓ ' : '⚠ ') + 'SZŰK: ≤ ' + Math.round(next.gw) + 'px';
+  } else {
+    ok  = pw >= next.rw - 3; col = ok ? '#00ff88' : '#cc00ff';
+    txt = (ok ? '✓ ' : '⚠ ') + 'LYUK: ≥ ' + Math.round(next.rw) + 'px';
+  }
+  const banH = FSS * 2;
+  const banY = FSM * 2.4 + 4;
+  ctx.fillStyle = col + '30'; ctx.fillRect(RL, banY, RW, banH);
+  ctx.fillStyle = col; ctx.font = `${FSS}px "Press Start 2P"`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(txt, W / 2, banY + banH / 2);
+}
+
+function drawPlayer() {
+  const x = px - pw / 2, y = PY - PH / 2;
+  ctx.shadowColor = '#00ff88'; ctx.shadowBlur = 28;
+  ctx.fillStyle = '#00ff88'; ctx.fillRect(x, y, pw, PH);
+  const pad = Math.round(PH * 0.18);
+  ctx.fillStyle = '#002a18'; ctx.fillRect(x + pad, y + pad, pw - pad * 2, PH - pad * 2);
+  ctx.shadowBlur = 0;
+  if (pw > 30) {
+    ctx.fillStyle = '#00ff88';
+    ctx.font = `bold ${Math.round(PH * 0.48)}px "Press Start 2P"`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(Math.round(pw), px, PY);
+  }
+}
+
+function drawButtons() {
+  ctx.fillStyle = '#080818'; ctx.fillRect(0, BTN_Y, W, BTN_H);
+  ctx.strokeStyle = '#00ff8833'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, BTN_Y); ctx.lineTo(W, BTN_Y); ctx.stroke();
+
+  const btnW = W / 4;
+  const btns = [
+    { key: 'ArrowLeft',  lbl: '◀',      col: '#00ff88' },
+    { key: 'ArrowDown',  lbl: '▼ LASSÚ', col: '#00ccff' },
+    { key: 'ArrowUp',    lbl: '▲ GYORS', col: '#ffcc00' },
+    { key: 'ArrowRight', lbl: '▶',       col: '#00ff88' },
+  ];
+  btns.forEach((b, i) => {
+    const bx = i * btnW;
+    ctx.fillStyle = keys[b.key] ? '#1a2a1a' : '#0e0e22';
+    ctx.fillRect(bx + 2, BTN_Y + 3, btnW - 4, BTN_H - 6);
+    ctx.strokeStyle = b.col + '66'; ctx.lineWidth = 2;
+    ctx.strokeRect(bx + 2, BTN_Y + 3, btnW - 4, BTN_H - 6);
+    ctx.fillStyle = b.col;
+    ctx.font = `bold ${FSS}px "Press Start 2P"`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(b.lbl, bx + btnW / 2, BTN_Y + BTN_H / 2);
+  });
+}
+
+function drawOverlay() {
+  ctx.fillStyle = 'rgba(4,4,20,0.88)'; ctx.fillRect(0, 0, W, BTN_Y);
+  ctx.textAlign = 'center'; ctx.shadowBlur = 0;
+
+  if (gs === 'start') {
+    ctx.shadowColor = '#00ff88'; ctx.shadowBlur = 18;
+    ctx.fillStyle = '#00ff88'; ctx.font = `${FSL}px "Press Start 2P"`;
+    ctx.fillText('MATEKOS ÚT', W / 2, H * 0.16);
+    ctx.shadowBlur = 0;
+    const rows = [
+      ['#aaa',    'Gyűjtsd a matekos jeleket'],
+      ['#aaa',    'hogy változtasd a szélességed!'],
+      ['', ''],
+      ['#ff8800', '🟠 SZŰK RÉSZ → légy KESKENY!'],
+      ['#cc88ff', '🟣 LYUK → légy SZÉLES!'],
+      ['', ''],
+      ['#ffcc00', '▲ GYORS   ▼ LASSÚ'],
+    ];
+    ctx.font = `${FSS}px "Press Start 2P"`;
+    rows.forEach(([c, t], i) => { ctx.fillStyle = c; ctx.fillText(t, W / 2, H * 0.30 + i * FSS * 2.6); });
+    ctx.fillStyle = '#00ffcc'; ctx.font = `${FSM}px "Press Start 2P"`;
+    ctx.fillText('Koppints vagy ENTER', W / 2, BTN_Y * 0.82);
+    if (hi > 0) {
+      ctx.fillStyle = '#ffdd00'; ctx.font = `${FSS}px "Press Start 2P"`;
+      ctx.fillText('Legjobb: ' + hi, W / 2, BTN_Y * 0.92);
+    }
+  } else {
+    ctx.shadowColor = '#ff3333'; ctx.shadowBlur = 18;
+    ctx.fillStyle = '#ff3333'; ctx.font = `${FSL}px "Press Start 2P"`;
+    ctx.fillText('GAME OVER', W / 2, H * 0.28);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#fff';   ctx.font = `${FSM}px "Press Start 2P"`;
+    ctx.fillText('Pontszám: ' + sc,  W / 2, H * 0.42);
+    ctx.fillStyle = '#ffdd00';
+    ctx.fillText('Legjobb:  ' + hi,  W / 2, H * 0.52);
+    ctx.fillStyle = '#00ffcc'; ctx.font = `${FSM}px "Press Start 2P"`;
+    ctx.fillText('Koppints vagy ENTER', W / 2, BTN_Y * 0.80);
+  }
+}
+
+// ── Game loop ───────────────────────────────────────────────────
+function loop() { update(); draw(); requestAnimationFrame(loop); }
+
+// Boot
+resize();
+window.addEventListener('resize', resize);
+obs = []; mops = []; sc = 0; baseSpd = 1.2; frame = 0; scrollY = 0;
+px = W / 2; pw = 80; pwT = 80;
+loop();
+</script>
+</body>
+</html>

@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Repülő Madár 3D – Kerüld el a fákat!</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; overflow: hidden; background: #000; }
+    #g { position: relative; width: 100%; height: 100%; }
+    canvas { display: block; touch-action: none; }
+
+    /* ── HUD ── */
+    #hud {
+      position: absolute; top: 14px; left: 14px;
+      pointer-events: none; z-index: 10;
+      font-family: 'Press Start 2P', monospace;
+    }
+    #score-el { display: block; color: #60e878; font-size: 14px; text-shadow: 0 0 10px #60e878; }
+    #best-el  { display: block; color: #3d6040; font-size: 9px;  margin-top: 8px; }
+
+    /* ── Overlay (title / game-over) ── */
+    #overlay {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,6,0,0.72); z-index: 20;
+      font-family: 'Press Start 2P', monospace;
+    }
+    #overlay.hidden { display: none; }
+    #panel { text-align: center; padding: 24px; max-width: 480px; }
+    #ptitle {
+      font-size: clamp(18px, 5vw, 26px); line-height: 1.9;
+      margin-bottom: 26px;
+    }
+    #pbody {
+      color: #aaffcc; font-size: clamp(8px, 2vw, 11px);
+      line-height: 2.5; margin-bottom: 26px;
+    }
+    #phint {
+      color: #60e878; font-size: clamp(7px, 1.8vw, 9px);
+      text-shadow: 0 0 10px #60e878;
+      animation: blink .76s ease-in-out infinite alternate;
+    }
+    @keyframes blink { from { opacity: .55 } to { opacity: 1 } }
+
+    /* ── Touch buttons ── */
+    #ctrl {
+      position: absolute; bottom: 18px; left: 0; right: 0;
+      display: flex; justify-content: space-between;
+      padding: 0 22px; z-index: 15; pointer-events: none;
+    }
+    .btn {
+      width: 86px; height: 86px; border-radius: 50%;
+      border: 3px solid rgba(80,220,100,.48);
+      background: rgba(0,28,10,.80);
+      color: #5be870; font-size: 30px;
+      display: flex; align-items: center; justify-content: center;
+      user-select: none; -webkit-user-select: none;
+      pointer-events: auto; cursor: pointer; transition: .08s;
+      font-family: sans-serif;
+    }
+    .btn.on { background: rgba(0,72,30,.9); transform: scale(.91); }
+  </style>
+</head>
+<body>
+<div id="g">
+  <canvas id="c"></canvas>
+
+  <div id="hud">
+    <span id="score-el">⭐ 0</span>
+    <span id="best-el">rekord: 0</span>
+  </div>
+
+  <div id="overlay">
+    <div id="panel">
+      <div id="ptitle"></div>
+      <div id="pbody"></div>
+      <div id="phint">[ SPACE / ENTER / KOPPINTS ]</div>
+    </div>
+  </div>
+
+  <div id="ctrl">
+    <div class="btn" id="bl">◀</div>
+    <div class="btn" id="br">▶</div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════
+   RENDERER
+═══════════════════════════════════════ */
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
+renderer.outputEncoding    = THREE.sRGBEncoding;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x7ec8e8);
+scene.fog        = new THREE.FogExp2(0x9ad4e8, 0.018);
+
+const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 180);
+let camX = 0;
+
+function resize() {
+  const W = innerWidth, H = innerHeight;
+  renderer.setSize(W, H, false);
+  camera.aspect = W / H;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* ═══════════════════════════════════════
+   LIGHTS
+═══════════════════════════════════════ */
+scene.add(new THREE.HemisphereLight(0x9ad4f0, 0x4a8a20, 0.55));
+
+const sun = new THREE.DirectionalLight(0xfff5d0, 1.15);
+sun.position.set(10, 20, 12);
+sun.castShadow = true;
+Object.assign(sun.shadow.mapSize, { width: 1024, height: 1024 });
+Object.assign(sun.shadow.camera,  { left:-22, right:22, top:20, bottom:-20, near:.5, far:90 });
+sun.shadow.bias = -0.0015;
+scene.add(sun);
+
+scene.add(new THREE.AmbientLight(0x8090b0, 0.38));
+
+/* ═══════════════════════════════════════
+   GROUND
+═══════════════════════════════════════ */
+const groundMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(60, 260),
+  new THREE.MeshLambertMaterial({ color: 0x4aaa28 })
+);
+groundMesh.rotation.x = -Math.PI / 2;
+groundMesh.receiveShadow = true;
+scene.add(groundMesh);
+
+/* ── Dirt path strip down the center ── */
+const path = new THREE.Mesh(
+  new THREE.PlaneGeometry(7, 260),
+  new THREE.MeshLambertMaterial({ color: 0x7aaa50 })
+);
+path.rotation.x = -Math.PI / 2;
+path.position.y  = 0.01;
+path.receiveShadow = true;
+scene.add(path);
+
+/* ═══════════════════════════════════════
+   CLOUDS (decorative, flat discs in sky)
+═══════════════════════════════════════ */
+const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.82 });
+function makeCloud(x, y, z) {
+  const g = new THREE.Group();
+  [[0,0,0,1.8],[1.5,.3,0,1.3],[-1.4,.2,0,1.2],[.6,.7,0,1.1]].forEach(([cx,cy,cz,r]) => {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), cloudMat);
+    m.position.set(cx, cy, cz);
+    g.add(m);
+  });
+  g.position.set(x, y, z);
+  scene.add(g);
+  return g;
+}
+const clouds = [];
+for (let i = 0; i < 10; i++) {
+  clouds.push(makeCloud(
+    (Math.random() - .5) * 50,
+    12 + Math.random() * 8,
+    -20 - Math.random() * 70
+  ));
+}
+
+/* ═══════════════════════════════════════
+   MATERIALS (reused across trees)
+═══════════════════════════════════════ */
+const M = {
+  trunk1: new THREE.MeshLambertMaterial({ color: 0x5c3310 }),
+  trunk2: new THREE.MeshLambertMaterial({ color: 0x6b4018 }),
+  pine: [
+    new THREE.MeshLambertMaterial({ color: 0x163a06 }),
+    new THREE.MeshLambertMaterial({ color: 0x1e5209 }),
+    new THREE.MeshLambertMaterial({ color: 0x286a0e }),
+  ],
+  round: [
+    new THREE.MeshLambertMaterial({ color: 0x1c5408 }),
+    new THREE.MeshLambertMaterial({ color: 0x286e10 }),
+    new THREE.MeshLambertMaterial({ color: 0x348018 }),
+  ],
+};
+
+/* ═══════════════════════════════════════
+   TREE FACTORIES
+═══════════════════════════════════════ */
+function makePine(x, z) {
+  const g = new THREE.Group();
+  g.position.set(x, 0, z);
+  g.scale.set(.85 + Math.random()*.3, .75 + Math.random()*.5, .85 + Math.random()*.3);
+
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.16,.24,2.2,8), M.trunk1);
+  trunk.position.y = 1.1; trunk.castShadow = true; trunk.receiveShadow = true;
+  g.add(trunk);
+
+  // Three stacked cone layers
+  [[M.pine[2],1.48,1.9,1.9],[M.pine[1],1.12,1.9,3.1],[M.pine[0],.76,1.8,4.15]].forEach(([mat,r,h,y]) => {
+    const c = new THREE.Mesh(new THREE.ConeGeometry(r,h,9), mat);
+    c.position.y = y; c.castShadow = true;
+    g.add(c);
+  });
+
+  scene.add(g);
+  return g;
+}
+
+function makeOak(x, z) {
+  const g = new THREE.Group();
+  g.position.set(x, 0, z);
+  g.scale.setScalar(.8 + Math.random()*.45);
+
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.13,.20,2.8,8), M.trunk2);
+  trunk.position.y = 1.4; trunk.castShadow = true; trunk.receiveShadow = true;
+  g.add(trunk);
+
+  // Lumpy canopy from 3 overlapping spheres
+  [[M.round[0],.0, 3.6,.0, 1.2],
+   [M.round[1],.32,3.9,.22,1.05],
+   [M.round[2],-.28,3.75,-.18,.95]].forEach(([mat,ox,oy,oz,r]) => {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(r,10,8), mat);
+    s.position.set(ox,oy,oz); s.castShadow = true;
+    g.add(s);
+  });
+
+  scene.add(g);
+  return g;
+}
+
+/* ═══════════════════════════════════════
+   BIRD
+═══════════════════════════════════════ */
+const BM = {
+  body: new THREE.MeshLambertMaterial({ color: 0xffd700 }),
+  wing: new THREE.MeshLambertMaterial({ color: 0xe8b810 }),
+  beak: new THREE.MeshLambertMaterial({ color: 0xff8c00 }),
+  eye:  new THREE.MeshBasicMaterial ({ color: 0x111111 }),
+  shine:new THREE.MeshBasicMaterial ({ color: 0xffffff }),
+};
+
+function makeBird() {
+  const root = new THREE.Group();
+
+  // Body — elongated sphere facing -Z
+  const body = new THREE.Mesh(new THREE.SphereGeometry(.34,12,9), BM.body);
+  body.scale.z = 1.65; body.castShadow = true;
+  root.add(body);
+
+  // Head
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.22,10,8), BM.body);
+  head.position.set(0,.18,-.46); head.castShadow = true;
+  root.add(head);
+
+  // Beak (cone pointing -Z)
+  const beak = new THREE.Mesh(new THREE.ConeGeometry(.065,.22,7), BM.beak);
+  beak.rotation.x = -Math.PI/2; beak.position.set(0,.14,-.70);
+  root.add(beak);
+
+  // Tail feathers
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(.12,.28,5), BM.wing);
+  tail.rotation.x = Math.PI/2; tail.position.set(0,-.06,.56);
+  root.add(tail);
+
+  // Wing pivots (so rotation looks natural)
+  const lPivot = new THREE.Group(); lPivot.position.set(-.36,0,0);
+  const rPivot = new THREE.Group(); rPivot.position.set( .36,0,0);
+
+  const wingGeo = new THREE.BoxGeometry(.78,.065,.42);
+  [lPivot, rPivot].forEach((piv, side) => {
+    const w = new THREE.Mesh(wingGeo, BM.wing);
+    w.position.x = (side===0 ? -.39 : .39);
+    w.castShadow = true;
+    // Wing tip taper
+    const tip = new THREE.Mesh(new THREE.BoxGeometry(.28,.055,.22), BM.wing);
+    tip.position.set((side===0 ? -.55 : .55), 0, .05);
+    w.add(tip);
+    piv.add(w);
+  });
+  root.add(lPivot); root.add(rPivot);
+
+  // Eye + glint
+  const eye   = new THREE.Mesh(new THREE.SphereGeometry(.072,7,6), BM.eye);
+  eye.position.set(-.14,.26,-.55);
+  const glint = new THREE.Mesh(new THREE.SphereGeometry(.030,5,5), BM.shine);
+  glint.position.set(-.145,.275,-.595);
+  root.add(eye); root.add(glint);
+
+  root.position.set(0, 1.9, 0);
+  scene.add(root);
+  return { root, lPivot, rPivot };
+}
+
+const bird = makeBird();
+
+/* ═══════════════════════════════════════
+   AUDIO
+═══════════════════════════════════════ */
+let ac;
+function tone(freq, type, dur, vol=.22, endF) {
+  if (!ac) ac = new (AudioContext || webkitAudioContext)();
+  if (ac.state==='suspended') ac.resume();
+  const o=ac.createOscillator(), g=ac.createGain();
+  o.connect(g); g.connect(ac.destination);
+  o.type=type; o.frequency.value=freq;
+  if (endF) { o.frequency.setValueAtTime(freq,ac.currentTime); o.frequency.exponentialRampToValueAtTime(endF,ac.currentTime+dur); }
+  g.gain.setValueAtTime(vol,ac.currentTime);
+  g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+dur);
+  o.start(); o.stop(ac.currentTime+dur);
+}
+const sndCrash  = () => tone(150,'sawtooth',.4,.45,40);
+const sndScore  = () => { tone(440,'sine',.08,.18); setTimeout(()=>tone(660,'sine',.1,.18),80); };
+const sndWhoosh = () => tone(700,'sawtooth',.1,.1,100);
+
+/* ═══════════════════════════════════════
+   INPUT
+═══════════════════════════════════════ */
+const K = { l:false, r:false };
+window.addEventListener('keydown', e => {
+  if (e.key==='ArrowLeft' ||e.key==='a') K.l=true;
+  if (e.key==='ArrowRight'||e.key==='d') K.r=true;
+  if ((e.key===' '||e.key==='Enter') && gs!=='playing') init();
+  if ([' ','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
+});
+window.addEventListener('keyup', e => {
+  if (e.key==='ArrowLeft' ||e.key==='a') K.l=false;
+  if (e.key==='ArrowRight'||e.key==='d') K.r=false;
+});
+window.addEventListener('mouseup', () => { K.l=K.r=false; });
+
+function bindBtn(id, key) {
+  const el = document.getElementById(id);
+  const on  = e => { K[key]=true;  el.classList.add('on');    e.preventDefault(); };
+  const off = ()  => { K[key]=false; el.classList.remove('on'); };
+  el.addEventListener('touchstart',  on,  {passive:false});
+  el.addEventListener('touchend',    off, {passive:false});
+  el.addEventListener('touchcancel', off, {passive:false});
+  el.addEventListener('mousedown',   on,  {passive:false});
+  el.addEventListener('mouseup',     off);
+}
+bindBtn('bl','l'); bindBtn('br','r');
+document.getElementById('overlay').addEventListener('click', () => { if (gs!=='playing') init(); });
+
+/* ═══════════════════════════════════════
+   UI helpers
+═══════════════════════════════════════ */
+const overlay  = document.getElementById('overlay');
+const ptitle   = document.getElementById('ptitle');
+const pbody    = document.getElementById('pbody');
+const scoreEl  = document.getElementById('score-el');
+const bestEl   = document.getElementById('best-el');
+
+function showScreen(title, col, body) {
+  overlay.classList.remove('hidden');
+  ptitle.innerHTML = title;
+  ptitle.style.cssText = `color:${col};text-shadow:0 0 22px ${col}`;
+  pbody.innerHTML = body;
+}
+function hideScreen() { overlay.classList.add('hidden'); }
+function updateHUD() {
+  scoreEl.textContent = `⭐ ${score}`;
+  bestEl.textContent  = `rekord: ${best}`;
+}
+
+/* ═══════════════════════════════════════
+   GAME STATE
+═══════════════════════════════════════ */
+let gs = 'title';
+let score = 0, best = +localStorage.getItem('rm3d-best') || 0;
+let spd, tick, birdVx, wingPhase, spawnT, spawnGap;
+
+// Obstacles: { mesh, x, r, passed, _w }
+let obs = [];
+// Background (decorative) trees
+let bgMeshes = [];
+
+const BIRD_R = 0.28; // collision radius (world units)
+const TREE_R = 0.62; // collision radius for all trees
+
+/* ═══════════════════════════════════════
+   INIT
+═══════════════════════════════════════ */
+function init() {
+  gs='playing'; score=0; tick=0;
+  spd=0.18; spawnT=0; spawnGap=92;
+  birdVx=0; wingPhase=0;
+
+  bird.root.position.set(0,1.9,0);
+  bird.root.rotation.set(0,0,0);
+  camX=0;
+
+  obs.forEach(o => scene.remove(o.mesh));
+  obs = [];
+
+  bgMeshes.forEach(m => scene.remove(m));
+  bgMeshes = [];
+
+  // Seed decorative side trees
+  for (let i=0; i<30; i++) {
+    const side = Math.random()<.5 ? -1 : 1;
+    const x    = side*(8 + Math.random()*12);
+    const z    = -80 + i * 4.5 + Math.random()*3;
+    const m    = Math.random()<.5 ? makePine(x,z) : makeOak(x,z);
+    bgMeshes.push(m);
+  }
+
+  hideScreen();
+  updateHUD();
+}
+
+/* ═══════════════════════════════════════
+   SPAWN
+═══════════════════════════════════════ */
+function makeTree(x, z) {
+  return Math.random() < .55 ? makePine(x, z) : makeOak(x, z);
+}
+
+function spawnObs() {
+  // Kapu: két fa között kell átrepülni (5 fa után jelenik meg)
+  if (score > 4 && Math.random() < 0.32) {
+    const gapW  = 2.4 + Math.random() * 1.8; // 2.4–4.2 egység a két fa közepe között
+    const gapCx = (Math.random() - 0.5) * 4.8; // kapu közepe: -2.4 to +2.4
+    const lx = gapCx - gapW / 2;
+    const rx = gapCx + gapW / 2;
+    if (lx > -4.2 && rx < 4.2) {
+      obs.push({ mesh: makeTree(lx, -68), x: lx, r: TREE_R, passed: false });
+      obs.push({ mesh: makeTree(rx, -68), x: rx, r: TREE_R, passed: false });
+      return;
+    }
+  }
+  // Szimpla fa – teljes pályaszélességen jelenik meg
+  const x = (Math.random() - 0.5) * 7.6; // -3.8 to +3.8
+  obs.push({ mesh: makeTree(x, -68), x, r: TREE_R, passed: false });
+}
+
+/* ═══════════════════════════════════════
+   UPDATE
+═══════════════════════════════════════ */
+function update() {
+  tick++;
+
+  // Continuous speed ramp
+  spd      = Math.min(0.68, spd + 0.00014);
+  spawnGap = Math.max(42,   spawnGap - 0.018);
+
+  // Bird steering
+  if (K.l) birdVx -= 0.022;
+  if (K.r) birdVx += 0.022;
+  if (!K.l && !K.r) birdVx *= 0.82;
+  birdVx = Math.max(-.28, Math.min(.28, birdVx));
+  bird.root.position.x = Math.max(-4.4, Math.min(4.4, bird.root.position.x + birdVx));
+
+  // Wing flap
+  wingPhase += 0.17 + spd * 0.2;
+  bird.lPivot.rotation.z =  Math.sin(wingPhase)*.5 + .08;
+  bird.rPivot.rotation.z = -Math.sin(wingPhase)*.5 - .08;
+
+  // Banking when turning
+  bird.root.rotation.z += (-birdVx * .55 - bird.root.rotation.z) * .12;
+
+  // Camera: smooth follow, slightly ahead of bird
+  camX += (bird.root.position.x * .62 - camX) * .10;
+  camera.position.set(camX, 4.6, 12.5);
+  camera.lookAt(bird.root.position.x * .38, 1.4, -5);
+
+  // Move sun with camera to keep shadows in view
+  sun.position.set(camX + 10, 20, 12);
+  sun.target.position.set(camX, 0, 0);
+  sun.target.updateMatrixWorld();
+
+  // Spawn obstacles
+  if (++spawnT >= spawnGap) { spawnObs(); spawnT=0; }
+
+  const bx = bird.root.position.x;
+
+  // Obstacles
+  for (let i=obs.length-1; i>=0; i--) {
+    const o = obs[i];
+    o.mesh.position.z += spd;
+
+    const tz = o.mesh.position.z;
+
+    // Collision: csak x-irányú távolság, miután a fa eléri a madár z-síkját
+    const dx = bx - o.mesh.position.x;
+    if (tick>60 && tz >= -0.15 && tz < 2.2 && Math.abs(dx) < BIRD_R + o.r) {
+      sndCrash();
+      if (score>best) { best=score; localStorage.setItem('rm3d-best',best); }
+      gs='dead';
+      showScreen('BUMM! 💥','#ff3c4a',
+        `Elkerült fák: ${score}<br><br>` +
+        (score>0&&score>=best?'<span style="color:#ffd700">🏆 ÚJ REKORD!</span><br><br>':'') +
+        `<span style="color:#446644">Legjobb: ${best} fa</span>`
+      );
+      return;
+    }
+
+    // Near-miss whoosh
+    if (!o._w && tz > -2.0 && tz < 2.2 && Math.abs(dx) < BIRD_R + o.r + 1.0) {
+      sndWhoosh(); o._w=true;
+    }
+
+    // Score
+    if (!o.passed && tz > 1.8) {
+      o.passed=true; score++;
+      if (score%5===0) sndScore();
+      updateHUD();
+    }
+
+    if (tz>22) { scene.remove(o.mesh); obs.splice(i,1); }
+  }
+
+  // Background trees: loop back when they pass camera
+  bgMeshes.forEach(m => {
+    m.position.z += spd;
+    if (m.position.z > 20) {
+      const side = Math.random()<.5 ? -1 : 1;
+      m.position.set(side*(8+Math.random()*12), 0, -72 + Math.random()*6);
+    }
+  });
+
+  // Clouds drift slowly
+  clouds.forEach(c => {
+    c.position.z += spd * .18;
+    if (c.position.z > 20) c.position.z = -70;
+  });
+
+  // Ground follows camera
+  groundMesh.position.z = camera.position.z - 120;
+  path.position.z       = camera.position.z - 120;
+}
+
+/* ═══════════════════════════════════════
+   LOOP
+═══════════════════════════════════════ */
+function loop() {
+  if (gs==='playing') update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+
+// Title screen
+showScreen('🐦 REPÜLŐ<br>MADÁR 3D','#60e878',
+  'Kerüld el a fákat!<br>◀ ▶ nyilak / gombok' +
+  (best>0?`<br><br><span style="color:#ffd700">Rekord: ${best} fa</span>`:'')
+);
+updateHUD();
+loop();
+</script>
+</body>
+</html>
