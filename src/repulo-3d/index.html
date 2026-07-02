@@ -416,20 +416,19 @@ function makeTree(x, z) {
 }
 
 function spawnObs() {
+  const bx = bird.root.position.x;
   // Kapu: két fa között kell átrepülni (5 fa után jelenik meg)
   if (score > 4 && Math.random() < 0.32) {
-    const gapW  = 2.4 + Math.random() * 2.0; // 2.4–4.4 egység a két fa közepe között
-    const gapCx = (Math.random() - 0.5) * 9.0; // kapu közepe: -4.5 to +4.5
+    const gapW  = 2.4 + Math.random() * 2.0;
+    const gapCx = bx + (Math.random() - 0.5) * 9.0;
     const lx = gapCx - gapW / 2;
     const rx = gapCx + gapW / 2;
-    if (lx > -7.0 && rx < 7.0) {
-      obs.push({ mesh: makeTree(lx, -68), x: lx, r: TREE_R, passed: false });
-      obs.push({ mesh: makeTree(rx, -68), x: rx, r: TREE_R, passed: false });
-      return;
-    }
+    obs.push({ mesh: makeTree(lx, -68), x: lx, r: TREE_R, passed: false });
+    obs.push({ mesh: makeTree(rx, -68), x: rx, r: TREE_R, passed: false });
+    return;
   }
-  // Szimpla fa – az egész nyílt terepen megjelenhet
-  const x = (Math.random() - 0.5) * 13.0; // -6.5 to +6.5
+  // Szimpla fa – a madár körül jelenik meg
+  const x = bx + (Math.random() - 0.5) * 13.0;
   obs.push({ mesh: makeTree(x, -68), x, r: TREE_R, passed: false });
 }
 
@@ -448,7 +447,7 @@ function update() {
   if (K.r) birdVx += 0.030;
   if (!K.l && !K.r) birdVx *= 0.82;
   birdVx = Math.max(-.40, Math.min(.40, birdVx));
-  bird.root.position.x = Math.max(-7.2, Math.min(7.2, bird.root.position.x + birdVx));
+  bird.root.position.x += birdVx;
 
   // Wing flap
   wingPhase += 0.17 + spd * 0.2;
@@ -458,10 +457,10 @@ function update() {
   // Banking when turning
   bird.root.rotation.z += (-birdVx * 1.8 - bird.root.rotation.z) * .14;
 
-  // Camera: Race the Sun stílus – alacsony, előre néző
-  camX += (bird.root.position.x * .55 - camX) * .10;
+  // Camera: mindig a madár mögött, középen
+  camX += (bird.root.position.x - camX) * .12;
   camera.position.set(camX, 3.0, 9.5);
-  camera.lookAt(bird.root.position.x * .30, 0.6, -14);
+  camera.lookAt(camX, 0.6, -14);
 
   // Move sun with camera to keep shadows in view
   sun.position.set(camX + 10, 20, 12);
@@ -514,17 +513,20 @@ function update() {
     m.position.z += spd;
     if (m.position.z > 20) {
       const side = Math.random()<.5 ? -1 : 1;
-      m.position.set(side*(11+Math.random()*18), 0, -80 + Math.random()*6);
+      m.position.set(camX + side*(11+Math.random()*18), 0, -80 + Math.random()*6);
     }
   });
 
   // Clouds drift slowly
   clouds.forEach(c => {
     c.position.z += spd * .18;
-    if (c.position.z > 20) c.position.z = -70;
+    if (c.position.z > 20) {
+      c.position.set(camX + (Math.random()-.5)*50, c.position.y, -70);
+    }
   });
 
-  // Ground follows camera
+  // Ground follows camera (X és Z is)
+  groundMesh.position.x = camX;
   groundMesh.position.z = camera.position.z - 130;
 }
 
