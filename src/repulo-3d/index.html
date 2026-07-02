@@ -65,14 +65,19 @@
     /* ── Pályaválasztó gombok ── */
     #level-wrap { display:none; margin-top:22px; }
     .lvl-btn {
-      font-family: 'Press Start 2P', monospace; font-size:8px; line-height:2.3;
+      font-family: 'Press Start 2P', monospace; font-size:9px; line-height:2.2;
       color:#60e878; background:rgba(0,20,10,.85);
-      border:2px solid rgba(80,220,100,.42); border-radius:8px;
-      padding:14px 12px; cursor:pointer; text-align:center;
-      transition:.12s; min-width:100px;
+      border:2px solid rgba(80,220,100,.38); border-radius:10px;
+      padding:20px 22px; cursor:pointer; text-align:center;
+      transition:.12s; min-width:144px;
     }
-    .lvl-btn:hover { background:rgba(0,55,20,.9); border-color:#60e878; transform:scale(1.06); }
-    .lvl-btn.sel   { border-color:#60e878; box-shadow:0 0 14px #28a858; }
+    .lvl-icon { font-size:2.6rem; line-height:1; margin-bottom:14px; font-family:sans-serif; }
+    .lvl-btn:hover, .lvl-btn.focused {
+      background:rgba(0,55,20,.9); border-color:#60e878;
+      box-shadow:0 0 22px #28a858; transform:scale(1.09);
+    }
+    #lvl-hint { margin-top:16px; color:#2d5030; font-size:7px;
+                font-family:'Press Start 2P',monospace; }
   </style>
 </head>
 <body>
@@ -90,10 +95,15 @@
       <div id="pbody"></div>
       <div id="phint">[ SPACE / ENTER / KOPPINTS ]</div>
       <div id="level-wrap">
-        <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
-          <button class="lvl-btn" id="btn-day">🌤️<br><br>NAPPALI<br>ERDŐ</button>
-          <button class="lvl-btn" id="btn-night">🌙<br><br>ÉJJELI<br>ERDŐ</button>
+        <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">
+          <button class="lvl-btn" id="btn-day">
+            <div class="lvl-icon">🌤️</div>NAPPALI<br>ERDŐ
+          </button>
+          <button class="lvl-btn" id="btn-night">
+            <div class="lvl-icon">🌙</div>ÉJJELI<br>ERDŐ
+          </button>
         </div>
+        <div id="lvl-hint">◀ ▶ &nbsp;·&nbsp; ENTER</div>
       </div>
     </div>
   </div>
@@ -445,7 +455,12 @@ const K = { l:false, r:false };
 window.addEventListener('keydown', e => {
   if (e.key==='ArrowLeft' ||e.key==='a') K.l=true;
   if (e.key==='ArrowRight'||e.key==='d') K.r=true;
-  if ((e.key===' '||e.key==='Enter') && (gs==='title'||gs==='dead')) showLevelSelect();
+  if ((gs==='title'||gs==='dead') && (e.key===' '||e.key==='Enter')) showLevelSelect();
+  if (gs==='levelselect') {
+    if (e.key==='ArrowLeft')           setLevelFocus(levelFocus-1);
+    if (e.key==='ArrowRight')          setLevelFocus(levelFocus+1);
+    if (e.key==='Enter'||e.key===' ')  selectLevel();
+  }
   if ([' ','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
 });
 window.addEventListener('keyup', e => {
@@ -504,19 +519,23 @@ function showLevelSelect() {
   pbody.innerHTML = '';
   phintEl.style.display = 'none';
   levelWrap.style.display = 'block';
-  document.getElementById('btn-day').classList.toggle('sel', level===1);
-  document.getElementById('btn-night').classList.toggle('sel', level===2);
+  setLevelFocus(level - 1);
 }
 
 overlay.addEventListener('click', () => {
   if (gs==='title' || gs==='dead') showLevelSelect();
 });
-document.getElementById('btn-day').addEventListener('click', e => {
-  e.stopPropagation(); level=1; init();
-});
-document.getElementById('btn-night').addEventListener('click', e => {
-  e.stopPropagation(); level=2; init();
-});
+
+const lvlBtns = [document.getElementById('btn-day'), document.getElementById('btn-night')];
+let levelFocus = 0;
+function setLevelFocus(idx) {
+  levelFocus = ((idx % 2) + 2) % 2;
+  lvlBtns.forEach((b, i) => b.classList.toggle('focused', i === levelFocus));
+}
+function selectLevel() { level = levelFocus + 1; init(); }
+lvlBtns.forEach((b, i) => b.addEventListener('click', e => {
+  e.stopPropagation(); setLevelFocus(i); selectLevel();
+}));
 function updateHUD() {
   scoreEl.textContent = `⭐ ${score}`;
   bestEl.textContent  = `rekord: ${best}`;
