@@ -260,7 +260,7 @@ function makeDecRock(x, z) {
 function makeDecBush(x, z) {
   const g = new THREE.Group();
   g.position.set(x, 0, z);
-  g.scale.setScalar(.6 + Math.random() * .55);
+  g.scale.setScalar(1.0 + Math.random() * 0.7);
   [[0,.3,0,.32],[.27,.2,.05,.24],[-.23,.18,.1,.21]].forEach(([ox,oy,oz,r]) => {
     const m = new THREE.Mesh(new THREE.SphereGeometry(r,7,5), D.bush);
     m.position.set(ox,oy,oz); m.castShadow=true; g.add(m);
@@ -313,13 +313,22 @@ function makeDecDeer(x, z) {
     const leg = new THREE.Mesh(new THREE.CylinderGeometry(.042,.033,.46,5), D.deer);
     leg.position.set(lx,.23,lz); g.add(leg);
   });
+  // Agancs (mindkét oldal)
+  [-1, 1].forEach(s => {
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(.013,.020,.30,5), D.deer);
+    stem.position.set(s*.07, 1.22, -.46); stem.rotation.z = s*.30; stem.castShadow=true; g.add(stem);
+    const b1 = new THREE.Mesh(new THREE.CylinderGeometry(.009,.013,.20,4), D.deer);
+    b1.position.set(s*.13, 1.33, -.51); b1.rotation.x=-.65; b1.rotation.z=s*.15; g.add(b1);
+    const b2 = new THREE.Mesh(new THREE.CylinderGeometry(.008,.011,.15,4), D.deer);
+    b2.position.set(s*.09, 1.40, -.44); b2.rotation.z=s*.60; b2.rotation.x=.25; g.add(b2);
+  });
   scene.add(g); return g;
 }
 
 const DEC_MAKERS = [
   makeDecRock, makeDecRock, makeDecBush, makeDecBush,
   makeDecFlower, makeDecFlower, makeDecFlower,
-  makeDecRabbit, makeDecRabbit, makeDecDeer,
+  makeDecRabbit, makeDecDeer, makeDecDeer,
 ];
 
 /* ═══════════════════════════════════════
