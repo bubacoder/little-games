@@ -620,7 +620,7 @@ function init() {
   // Seed decorative background trees (széles, nyílt terep)
   for (let i=0; i<36; i++) {
     const side = Math.random()<.5 ? -1 : 1;
-    const x    = side*(11 + Math.random()*18);
+    const x    = side*(FIELD_HALF + 3 + Math.random()*14);
     const z    = -85 + i * 4.2 + Math.random()*3;
     const m    = Math.random()<.5 ? makePine(x,z) : makeOak(x,z);
     bgMeshes.push(m);
@@ -758,7 +758,7 @@ function update() {
     m.position.z += spd;
     if (m.position.z > 20) {
       const side = Math.random()<.5 ? -1 : 1;
-      m.position.set(camX + side*(11+Math.random()*18), 0, -80 + Math.random()*6);
+      m.position.set(camX + side*(FIELD_HALF + 3 + Math.random()*14), 0, -80 + Math.random()*6);
     }
   });
 
