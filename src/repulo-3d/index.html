@@ -376,8 +376,9 @@ const scoredRowIds = new Set();
 // Background (decorative) trees
 let bgMeshes = [];
 
-const BIRD_R = 0.28; // collision radius (world units)
-const TREE_R = 0.62; // collision radius for all trees
+const BIRD_R     = 0.28; // collision radius (world units)
+const TREE_R     = 0.62; // collision radius for all trees
+const FIELD_HALF = 8.5;  // pálya fél-szélessége (kb. képernyő-szél)
 
 /* ═══════════════════════════════════════
    INIT
@@ -421,8 +422,9 @@ function makeTree(x, z) {
 
 function spawnObs() {
   const bx = bird.root.position.x;
-  // Előrejelzés: hova ér a madár mire a fa odaér (max 80 keret)
-  const aimX = bx + birdVx * Math.min(68 / spd, 80);
+  // Előrejelzés: hova ér a madár mire a fa odaér (a pálya határain belül)
+  const raw  = bx + birdVx * Math.min(68 / spd, 80);
+  const aimX = Math.max(-FIELD_HALF + 1, Math.min(FIELD_HALF - 1, raw));
   const id = spawnRowId++;
 
   if (score <= 3) {
@@ -461,7 +463,7 @@ function update() {
   if (K.r) birdVx += 0.030;
   if (!K.l && !K.r) birdVx *= 0.82;
   birdVx = Math.max(-.40, Math.min(.40, birdVx));
-  bird.root.position.x += birdVx;
+  bird.root.position.x = Math.max(-FIELD_HALF, Math.min(FIELD_HALF, bird.root.position.x + birdVx));
 
   // Wing flap
   wingPhase += 0.17 + spd * 0.2;
