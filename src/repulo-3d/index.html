@@ -455,8 +455,9 @@ const K = { l:false, r:false };
 window.addEventListener('keydown', e => {
   if (e.key==='ArrowLeft' ||e.key==='a') K.l=true;
   if (e.key==='ArrowRight'||e.key==='d') K.r=true;
-  if ((gs==='title'||gs==='dead') && (e.key===' '||e.key==='Enter')) showLevelSelect();
-  if (gs==='levelselect') {
+  if ((gs==='title'||gs==='dead') && (e.key===' '||e.key==='Enter')) {
+    showLevelSelect();
+  } else if (gs==='levelselect') {
     if (e.key==='ArrowLeft')           setLevelFocus(levelFocus-1);
     if (e.key==='ArrowRight')          setLevelFocus(levelFocus+1);
     if (e.key==='Enter'||e.key===' ')  selectLevel();
