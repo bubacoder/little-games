@@ -369,8 +369,10 @@ let gs = 'title';
 let score = 0, best = +localStorage.getItem('rm3d-best') || 0;
 let spd, tick, birdVx, wingPhase, spawnT, spawnGap;
 
-// Obstacles: { mesh, x, r, passed, _w }
+// Obstacles: { mesh, x, r, passed, id, _w }
 let obs = [];
+let spawnRowId = 0;
+const scoredRowIds = new Set();
 // Background (decorative) trees
 let bgMeshes = [];
 
@@ -391,6 +393,8 @@ function init() {
 
   obs.forEach(o => scene.remove(o.mesh));
   obs = [];
+  spawnRowId = 0;
+  scoredRowIds.clear();
 
   bgMeshes.forEach(m => scene.remove(m));
   bgMeshes = [];
@@ -417,19 +421,29 @@ function makeTree(x, z) {
 
 function spawnObs() {
   const bx = bird.root.position.x;
-  // Kapu: két fa között kell átrepülni (5 fa után jelenik meg)
-  if (score > 4 && Math.random() < 0.32) {
-    const gapW  = 2.4 + Math.random() * 2.0;
-    const gapCx = bx + (Math.random() - 0.5) * 9.0;
-    const lx = gapCx - gapW / 2;
-    const rx = gapCx + gapW / 2;
-    obs.push({ mesh: makeTree(lx, -68), x: lx, r: TREE_R, passed: false });
-    obs.push({ mesh: makeTree(rx, -68), x: rx, r: TREE_R, passed: false });
+  // Előrejelzés: hova ér a madár mire a fa odaér (max 80 keret)
+  const aimX = bx + birdVx * Math.min(68 / spd, 80);
+  const id = spawnRowId++;
+
+  if (score <= 3) {
+    // Könnyű kezdés: egy szimpla fa
+    const x = aimX + (Math.random() - 0.5) * 9.0;
+    obs.push({ mesh: makeTree(x, -68), x, r: TREE_R, passed: false, id });
     return;
   }
-  // Szimpla fa – a madár körül jelenik meg
-  const x = bx + (Math.random() - 0.5) * 13.0;
-  obs.push({ mesh: makeTree(x, -68), x, r: TREE_R, passed: false });
+
+  // Fa-sor egy átjáróval – a madár nem kerülheti ki oldalra
+  const gapX  = aimX + (Math.random() - 0.5) * 3.0; // átjáró közel a madárhoz
+  const gapH  = 1.5 + Math.random() * 0.7;           // fél-rés: ~3-4 egység széles átjáró
+  const halfW = Math.min(5.5 + score * 0.18, 11);    // sor szélessége nő a pontszámmal
+  const step  = 3.2;
+
+  for (let dx = -halfW; dx <= halfW + 0.1; dx += step) {
+    const tx = aimX + dx;
+    if (Math.abs(tx - gapX) >= gapH) {
+      obs.push({ mesh: makeTree(tx, -68), x: tx, r: TREE_R, passed: false, id });
+    }
+  }
 }
 
 /* ═══════════════════════════════════════
@@ -498,11 +512,15 @@ function update() {
       sndWhoosh(); o._w=true;
     }
 
-    // Score
+    // Score – fa-soronként egyszer számít
     if (!o.passed && tz > 1.8) {
-      o.passed=true; score++;
-      if (score%5===0) sndScore();
-      updateHUD();
+      o.passed = true;
+      if (!scoredRowIds.has(o.id)) {
+        scoredRowIds.add(o.id);
+        score++;
+        if (score%5===0) sndScore();
+        updateHUD();
+      }
     }
 
     if (tz>22) { scene.remove(o.mesh); obs.splice(i,1); }
