@@ -61,6 +61,18 @@
       font-family: sans-serif;
     }
     .btn.on { background: rgba(0,72,30,.9); transform: scale(.91); }
+
+    /* ── Pályaválasztó gombok ── */
+    #level-wrap { display:none; margin-top:22px; }
+    .lvl-btn {
+      font-family: 'Press Start 2P', monospace; font-size:8px; line-height:2.3;
+      color:#60e878; background:rgba(0,20,10,.85);
+      border:2px solid rgba(80,220,100,.42); border-radius:8px;
+      padding:14px 12px; cursor:pointer; text-align:center;
+      transition:.12s; min-width:100px;
+    }
+    .lvl-btn:hover { background:rgba(0,55,20,.9); border-color:#60e878; transform:scale(1.06); }
+    .lvl-btn.sel   { border-color:#60e878; box-shadow:0 0 14px #28a858; }
   </style>
 </head>
 <body>
@@ -77,6 +89,12 @@
       <div id="ptitle"></div>
       <div id="pbody"></div>
       <div id="phint">[ SPACE / ENTER / KOPPINTS ]</div>
+      <div id="level-wrap">
+        <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+          <button class="lvl-btn" id="btn-day">🌤️<br><br>NAPPALI<br>ERDŐ</button>
+          <button class="lvl-btn" id="btn-night">🌙<br><br>ÉJJELI<br>ERDŐ</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -118,7 +136,8 @@ resize();
 /* ═══════════════════════════════════════
    LIGHTS
 ═══════════════════════════════════════ */
-scene.add(new THREE.HemisphereLight(0x9ad4f0, 0x4a8a20, 0.55));
+const hemiLight = new THREE.HemisphereLight(0x9ad4f0, 0x4a8a20, 0.55);
+scene.add(hemiLight);
 
 const sun = new THREE.DirectionalLight(0xfff5d0, 1.15);
 sun.position.set(10, 20, 12);
@@ -128,7 +147,8 @@ Object.assign(sun.shadow.camera,  { left:-30, right:30, top:20, bottom:-20, near
 sun.shadow.bias = -0.0015;
 scene.add(sun);
 
-scene.add(new THREE.AmbientLight(0x8090b0, 0.38));
+const ambLight = new THREE.AmbientLight(0x8090b0, 0.38);
+scene.add(ambLight);
 
 /* ═══════════════════════════════════════
    GROUND
@@ -195,6 +215,9 @@ const D = {
   fur:  new THREE.MeshLambertMaterial({ color: 0xd0c09a }),
   deer: new THREE.MeshLambertMaterial({ color: 0xb07030 }),
 };
+// Szentjánosbogár (éjjeli pályához)
+const fireflyMat = new THREE.MeshBasicMaterial({ color: 0x99ffbb });
+const fireflyGeo = new THREE.SphereGeometry(0.07, 5, 4);
 
 /* ═══════════════════════════════════════
    TREE FACTORIES
@@ -422,7 +445,7 @@ const K = { l:false, r:false };
 window.addEventListener('keydown', e => {
   if (e.key==='ArrowLeft' ||e.key==='a') K.l=true;
   if (e.key==='ArrowRight'||e.key==='d') K.r=true;
-  if ((e.key===' '||e.key==='Enter') && gs!=='playing') init();
+  if ((e.key===' '||e.key==='Enter') && (gs==='title'||gs==='dead')) showLevelSelect();
   if ([' ','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
 });
 window.addEventListener('keyup', e => {
@@ -442,7 +465,6 @@ function bindBtn(id, key) {
   el.addEventListener('mouseup',     off);
 }
 bindBtn('bl','l'); bindBtn('br','r');
-document.getElementById('overlay').addEventListener('click', () => { if (gs!=='playing') init(); });
 
 /* ═══════════════════════════════════════
    UI helpers
@@ -453,13 +475,48 @@ const pbody    = document.getElementById('pbody');
 const scoreEl  = document.getElementById('score-el');
 const bestEl   = document.getElementById('best-el');
 
+const phintEl    = document.getElementById('phint');
+const levelWrap  = document.getElementById('level-wrap');
+
 function showScreen(title, col, body) {
   overlay.classList.remove('hidden');
   ptitle.innerHTML = title;
   ptitle.style.cssText = `color:${col};text-shadow:0 0 22px ${col}`;
   pbody.innerHTML = body;
+  phintEl.style.display = '';
+  levelWrap.style.display = 'none';
 }
 function hideScreen() { overlay.classList.add('hidden'); }
+
+function showTitle() {
+  gs = 'title';
+  showScreen('🐦 REPÜLŐ<br>MADÁR 3D','#60e878',
+    'Kerüld el a fákat!<br>◀ ▶ nyilak / gombok' +
+    (best>0?`<br><br><span style="color:#ffd700">Rekord: ${best}</span>`:'')
+  );
+}
+
+function showLevelSelect() {
+  gs = 'levelselect';
+  overlay.classList.remove('hidden');
+  ptitle.innerHTML = '🌍 VÁLASSZ<br>PÁLYÁT!';
+  ptitle.style.cssText = 'color:#60e878;text-shadow:0 0 22px #60e878';
+  pbody.innerHTML = '';
+  phintEl.style.display = 'none';
+  levelWrap.style.display = 'block';
+  document.getElementById('btn-day').classList.toggle('sel', level===1);
+  document.getElementById('btn-night').classList.toggle('sel', level===2);
+}
+
+overlay.addEventListener('click', () => {
+  if (gs==='title' || gs==='dead') showLevelSelect();
+});
+document.getElementById('btn-day').addEventListener('click', e => {
+  e.stopPropagation(); level=1; init();
+});
+document.getElementById('btn-night').addEventListener('click', e => {
+  e.stopPropagation(); level=2; init();
+});
 function updateHUD() {
   scoreEl.textContent = `⭐ ${score}`;
   bestEl.textContent  = `rekord: ${best}`;
@@ -469,6 +526,7 @@ function updateHUD() {
    GAME STATE
 ═══════════════════════════════════════ */
 let gs = 'title';
+let level = 1; // 1 = nappali, 2 = éjjeli
 let score = 0, best = +localStorage.getItem('rm3d-best') || 0;
 let spd, tick, birdVx, wingPhase, spawnT, spawnGap;
 
@@ -480,6 +538,8 @@ const scoredRowIds = new Set();
 let bgMeshes = [];
 // Dekoratív elemek (kő, bokor, virág, nyúl, szarvas)
 let decMeshes = [];
+// Szentjánosbogarak
+let fireflies = [], fireflyT = 0;
 
 const BIRD_R     = 0.28; // collision radius (world units)
 const TREE_R     = 0.62; // collision radius for all trees
@@ -496,6 +556,36 @@ function init() {
   bird.root.position.set(0,1.9,0);
   bird.root.rotation.set(0,0,0);
   camX=0;
+
+  // Pálya-téma beállítása
+  if (level === 1) {
+    scene.background.setHex(0x8ad4f0);
+    scene.fog = new THREE.FogExp2(0x8ad4f0, 0.013);
+    groundMesh.material.color.setHex(0x4aaa28);
+    hemiLight.color.setHex(0x9ad4f0); hemiLight.groundColor.setHex(0x4a8a20); hemiLight.intensity=0.55;
+    sun.color.setHex(0xfff5d0); sun.intensity=1.15;
+    ambLight.color.setHex(0x8090b0); ambLight.intensity=0.38;
+  } else {
+    scene.background.setHex(0x030e18);
+    scene.fog = new THREE.FogExp2(0x030e18, 0.019);
+    groundMesh.material.color.setHex(0x0a1a04);
+    hemiLight.color.setHex(0x0a1828); hemiLight.groundColor.setHex(0x030802); hemiLight.intensity=0.28;
+    sun.color.setHex(0xb0c8f0); sun.intensity=0.40;
+    ambLight.color.setHex(0x040c18); ambLight.intensity=0.18;
+  }
+  clouds.forEach(c => { c.visible = level===1; });
+
+  // Szentjánosbogarak (csak éjjeli pálya)
+  fireflies.forEach(f => scene.remove(f.mesh));
+  fireflies = []; fireflyT = 0;
+  if (level === 2) {
+    for (let i=0; i<22; i++) {
+      const mesh = new THREE.Mesh(fireflyGeo, fireflyMat);
+      mesh.position.set((Math.random()-.5)*22, .5+Math.random()*2.2, -8-Math.random()*55);
+      fireflies.push({ mesh, sx:(Math.random()-.5)*.015, sy:(Math.random()-.5)*.006, phase:Math.random()*Math.PI*2 });
+      scene.add(mesh);
+    }
+  }
 
   obs.forEach(o => scene.remove(o.mesh));
   obs = [];
@@ -592,8 +682,9 @@ function update() {
   camera.position.set(camX, 3.0, 9.5);
   camera.lookAt(camX, 0.6, -14);
 
-  // Move sun with camera to keep shadows in view
-  sun.position.set(camX + 10, 20, 12);
+  // Nap/hold követi a kamerát
+  const sunOff = level===1 ? [camX+10, 20, 12] : [camX-6, 20, 8];
+  sun.position.set(...sunOff);
   sun.target.position.set(camX, 0, 0);
   sun.target.updateMatrixWorld();
 
@@ -659,6 +750,24 @@ function update() {
     }
   });
 
+  // Szentjánosbogarak (éjjeli pálya)
+  if (level === 2) {
+    fireflyT += 0.055;
+    fireflies.forEach(f => {
+      f.mesh.position.x += f.sx;
+      f.mesh.position.y += f.sy;
+      f.mesh.position.z += spd * 0.25;
+      f.sx += (Math.random()-.5)*.0022; f.sx=Math.max(-.025,Math.min(.025,f.sx));
+      f.sy += (Math.random()-.5)*.001;
+      if (f.mesh.position.y < .3)  f.sy =  Math.abs(f.sy);
+      if (f.mesh.position.y > 3.2) f.sy = -Math.abs(f.sy);
+      f.mesh.scale.setScalar(.6 + .6*Math.sin(fireflyT*2.8 + f.phase));
+      if (f.mesh.position.z > 12) {
+        f.mesh.position.set(camX+(Math.random()-.5)*22, .5+Math.random()*2.2, -55+Math.random()*5);
+      }
+    });
+  }
+
   // Clouds drift slowly
   clouds.forEach(c => {
     c.position.z += spd * .18;
@@ -681,11 +790,7 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-// Title screen
-showScreen('🐦 REPÜLŐ<br>MADÁR 3D','#60e878',
-  'Kerüld el a fákat!<br>◀ ▶ nyilak / gombok' +
-  (best>0?`<br><br><span style="color:#ffd700">Rekord: ${best} fa</span>`:'')
-);
+showTitle();
 updateHUD();
 loop();
 </script>
