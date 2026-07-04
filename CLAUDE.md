@@ -30,6 +30,17 @@ Landing page: `src/index.html` – kártya-rács, sötét téma, linkel az össz
 Játék-adatok: `src/games.js` – kétnyelvű (hu/en) adatfájl, innen tölti be az index a kártyákat.
 Nyelvváltó: 🇭🇺/🇬🇧 zászló gombok a fejlécben; választott nyelv `localStorage`-ban tárolódik; alapértelmezett: magyar.
 
+### Agent skillek (`.claude/skills/`)
+| Skill | Mire való |
+|---|---|
+| `game-design` | Új játékötlet vezetett tervezése kódolás előtt → `src/<játék>/DESIGN.md` |
+| `playtest` | Játék futtatása headless böngészőben: képernyőképek + JS-hibák |
+| `add-game` | Kész játék bekötése: games.js + CLAUDE.md táblázat + validátor |
+| `hang-muhely` | Web Audio hangeffekt-receptek (kódból generált hangok) |
+
+A playtest és add-game scriptekhez `uv` kell – telepítés: README „Fejlesztői eszközök".
+Játékkód változtatása után futtasd a `playtest` skillt; új játék bekötésekor az `add-game`-et.
+
 ---
 
 ## Technológiai irányelvek
@@ -54,7 +65,10 @@ Ezek **erős ajánlások** – indokolt esetben el lehet térni tőlük, de az e
 
 ## Új játék hozzáadásakor
 
-1. Hozz létre új alkönyvtárat: `src/<játéknév>/`
+0. **Tervezés először**: az ötletet a `game-design` skill-lel tervezzétek meg
+   (`.claude/skills/game-design/`). Eredménye a `src/<játéknév>/DESIGN.md` játékterv.
+   Kódolás csak kész terv után kezdődjön.
+1. Hozz létre új alkönyvtárat: `src/<játéknév>/` (ha a tervezés során még nem jött létre)
 2. Legalább egy `index.html` fájl szükséges benne.
 3. **Frissítsd `src/games.js`-t**: add hozzá az új játékot a `GAMES` tömbhöz.
    - `id` – könyvtár neve (pl. `"matekos-kviz"`)
@@ -75,6 +89,19 @@ Ezek **erős ajánlások** – indokolt esetben el lehet térni tőlük, de az e
 Ha egy meglévő játékot folytatunk, az első üzenetből egyértelműen azonosítsd melyikről van szó:
 - Kérdezz rá vagy mondd meg melyik alkönyvtárat (`src/<név>/`) érinti a munka.
 - Csak az adott játék kódjára és kontextusára fókuszálj.
+
+### DESIGN.md – a játék tervdokumentuma
+Minden játékhoz tartozhat `src/<játék>/DESIGN.md` (a `game-design` skill hozza létre).
+
+- **Mindig olvasd be** a játék DESIGN.md-jét a munka elején, ha létezik – ez a játék
+  szándékainak forrása (játékmag, mechanikák, tanulási cél, tervezett nehezítések).
+- **Tartsd karban**: frissítsd a DESIGN.md-t, ha
+  - új mechanika, játékmód vagy pályatípus kerül a játékba,
+  - változik a nehézségi görbe, a jutalmazás vagy a tanulási cél,
+  - egy tervezett elem végül kimarad vagy másképp valósul meg,
+  - játék közben új ötlet merül fel → jegyezd fel a „Továbbfejlesztési ötletek" részbe.
+- Apró javítás (bugfix, stílus-finomítás) nem igényel DESIGN.md-frissítést.
+- Frissítéskor írj egy sort a „Változásnapló" részbe (dátum + mi változott).
 
 ### Játékok közötti keveredés elkerülése
 Ha éppen folyamatban van egy játék fejlesztése és a felhasználó egy MÁsik új játékot szeretne
