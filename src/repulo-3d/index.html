@@ -427,7 +427,86 @@ function makeBird() {
   return { root, lPivot, rPivot };
 }
 
-const bird = makeBird();
+const OM = {
+  body:  new THREE.MeshLambertMaterial({ color: 0x7a5c32 }),
+  wing:  new THREE.MeshLambertMaterial({ color: 0x4e3a1f }),
+  face:  new THREE.MeshLambertMaterial({ color: 0xd4c4a0 }),
+  beak:  new THREE.MeshLambertMaterial({ color: 0xe8c040 }),
+  iris:  new THREE.MeshBasicMaterial ({ color: 0xffa500 }),
+  eye:   new THREE.MeshBasicMaterial ({ color: 0x111111 }),
+  shine: new THREE.MeshBasicMaterial ({ color: 0xffffff }),
+};
+
+function makeOwl() {
+  const root = new THREE.Group();
+
+  // Body
+  const body = new THREE.Mesh(new THREE.SphereGeometry(.34,12,9), OM.body);
+  body.scale.z = 1.45; body.castShadow = true;
+  root.add(body);
+
+  // Head — bigger & rounder than normal bird
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.28,10,8), OM.body);
+  head.position.set(0,.22,-.44); head.castShadow = true;
+  root.add(head);
+
+  // Face disc (cream flat oval)
+  const face = new THREE.Mesh(new THREE.SphereGeometry(.22,10,8), OM.face);
+  face.scale.z = 0.38;
+  face.position.set(0,.22,-.61);
+  root.add(face);
+
+  // Ear tufts
+  const tuftGeo = new THREE.ConeGeometry(.055,.15,5);
+  const lTuft = new THREE.Mesh(tuftGeo, OM.body);
+  lTuft.position.set(-.11,.50,-.40); lTuft.rotation.z = .22;
+  const rTuft = new THREE.Mesh(tuftGeo, OM.body);
+  rTuft.position.set( .11,.50,-.40); rTuft.rotation.z = -.22;
+  root.add(lTuft); root.add(rTuft);
+
+  // Beak — small hooked, pointing slightly down
+  const beak = new THREE.Mesh(new THREE.ConeGeometry(.05,.11,6), OM.beak);
+  beak.rotation.x = Math.PI/2 + 0.55;
+  beak.position.set(0,.19,-.66);
+  root.add(beak);
+
+  // Eyes: orange iris + black pupil + white glint (both sides)
+  [-.14, .14].forEach((ex, i) => {
+    const iris  = new THREE.Mesh(new THREE.SphereGeometry(.10,8,7), OM.iris);
+    iris.position.set(ex, .26, -.63);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(.066,7,6), OM.eye);
+    pupil.position.set(ex * 1.02, .262, -.675);
+    const glint = new THREE.Mesh(new THREE.SphereGeometry(.028,5,4), OM.shine);
+    glint.position.set(ex * .88, .278, -.690);
+    root.add(iris); root.add(pupil); root.add(glint);
+  });
+
+  // Tail feathers
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(.14,.30,5), OM.body);
+  tail.rotation.x = Math.PI/2; tail.position.set(0,-.06,.54);
+  root.add(tail);
+
+  // Wings
+  const lPivot = new THREE.Group(); lPivot.position.set(-.36,0,0);
+  const rPivot = new THREE.Group(); rPivot.position.set( .36,0,0);
+  const wingGeo = new THREE.BoxGeometry(.78,.065,.42);
+  [lPivot, rPivot].forEach((piv, side) => {
+    const w = new THREE.Mesh(wingGeo, OM.wing);
+    w.position.x = (side===0 ? -.39 : .39);
+    w.castShadow = true;
+    const tip = new THREE.Mesh(new THREE.BoxGeometry(.28,.055,.22), OM.wing);
+    tip.position.set((side===0 ? -.55 : .55), 0, .05);
+    w.add(tip);
+    piv.add(w);
+  });
+  root.add(lPivot); root.add(rPivot);
+
+  root.position.set(0, 1.9, 0);
+  scene.add(root);
+  return { root, lPivot, rPivot };
+}
+
+let bird = makeBird();
 
 /* ═══════════════════════════════════════
    AUDIO
@@ -563,7 +642,7 @@ let fireflies = [], fireflyT = 0;
 
 const BIRD_R     = 0.28; // collision radius (world units)
 const TREE_R     = 0.62; // collision radius for all trees
-const FIELD_HALF = 13;   // pálya fél-szélessége (kb. képernyő-szél)
+const FIELD_HALF = 16;   // pálya fél-szélessége (kb. képernyő-szél)
 
 /* ═══════════════════════════════════════
    INIT
@@ -573,6 +652,8 @@ function init() {
   spd=0.18; spawnT=0; spawnGap=92;
   birdVx=0; wingPhase=0;
 
+  scene.remove(bird.root);
+  bird = level === 1 ? makeBird() : makeOwl();
   bird.root.position.set(0,1.9,0);
   bird.root.rotation.set(0,0,0);
   camX=0;
@@ -698,7 +779,7 @@ function update() {
   bird.root.rotation.z += (-birdVx * 1.8 - bird.root.rotation.z) * .14;
 
   // Camera: mindig a madár mögött, középen
-  camX += (bird.root.position.x - camX) * .12;
+  camX = bird.root.position.x;
   camera.position.set(camX, 3.0, 9.5);
   camera.lookAt(camX, 0.6, -14);
 
@@ -758,7 +839,7 @@ function update() {
     m.position.z += spd;
     if (m.position.z > 20) {
       const side = Math.random()<.5 ? -1 : 1;
-      m.position.set(camX + side*(FIELD_HALF + 3 + Math.random()*14), 0, -80 + Math.random()*6);
+      m.position.set(side*(FIELD_HALF + 3 + Math.random()*14), 0, -80 + Math.random()*6);
     }
   });
 
