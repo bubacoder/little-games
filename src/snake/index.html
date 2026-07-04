@@ -20,6 +20,8 @@
       min-height: 100vh;
       font-family: 'Press Start 2P', monospace;
       color: #39ff14;
+      padding: 8px 0;
+      overflow-y: auto;
     }
 
     h1 {
@@ -29,6 +31,10 @@
       margin-bottom: 14px;
     }
 
+    @media (max-width: 480px) {
+      h1 { font-size: 1rem; margin-bottom: 8px; }
+    }
+
     #hud {
       display: flex;
       gap: 24px;
@@ -36,6 +42,10 @@
       font-size: 0.55rem;
       letter-spacing: 0.08em;
       min-height: 1.4em;
+    }
+
+    @media (max-width: 480px) {
+      #hud { gap: 12px; margin-bottom: 8px; }
     }
 
     #hud span { text-shadow: 0 0 6px #39ff14; }
@@ -142,6 +152,44 @@
     }
     #menu-btn:hover { color: #39ff14; border-color: #39ff14; box-shadow: 0 0 10px #39ff14; }
     #menu-btn.visible { display: inline-block; }
+
+    /* ── D-pad ── */
+    #dpad {
+      display: grid;
+      grid-template-columns: repeat(3, 60px);
+      grid-template-rows: repeat(2, 60px);
+      gap: 6px;
+      margin-top: 14px;
+      user-select: none;
+    }
+
+    #dpad button {
+      background: rgba(57,255,20,0.08);
+      border: 2px solid rgba(57,255,20,0.5);
+      color: #39ff14;
+      font-size: 1.5rem;
+      border-radius: 8px;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: background 0.1s, box-shadow 0.1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #dpad button:active {
+      background: rgba(57,255,20,0.28);
+      box-shadow: 0 0 14px #39ff14;
+    }
+
+    #d-up    { grid-column: 2; grid-row: 1; }
+    #d-left  { grid-column: 1; grid-row: 2; }
+    #d-down  { grid-column: 2; grid-row: 2; }
+    #d-right { grid-column: 3; grid-row: 2; }
+
+    @media (hover: hover) and (pointer: fine) and (min-width: 600px) {
+      #dpad { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -152,7 +200,7 @@
     <span id="timer-wrap" style="display:none">TIME: <b id="timer">60</b></span>
   </div>
 
-  <div style="position:relative;">
+  <div style="position:relative; touch-action: none;">
     <canvas id="canvas"></canvas>
     <div id="overlay">
       <h2 id="overlay-title">SNAKE</h2>
@@ -164,11 +212,21 @@
     </div>
   </div>
 
+  <div id="dpad">
+    <button id="d-up">▲</button>
+    <button id="d-left">◄</button>
+    <button id="d-down">▼</button>
+    <button id="d-right">►</button>
+  </div>
+
   <script>
     // ── Config ────────────────────────────────────────────────
     const COLS         = 30;
     const ROWS         = 30;
-    const CELL         = 20;
+    const CELL         = (function() {
+      const avail = Math.min(window.innerWidth - 16, window.innerHeight * 0.6);
+      return Math.min(20, Math.max(10, Math.floor(avail / COLS)));
+    })();
     const SPEED_INIT   = 120;
     const SPEED_MIN    = 55;
     const SPEED_STEP   = 4;
@@ -609,20 +667,63 @@
       w:{x:0,y:-1}, s:{x:0,y:1}, a:{x:-1,y:0}, d:{x:1,y:0},
     };
 
+    function applyDir(newDir) {
+      if (state !== 'running') return;
+      if (newDir.x === -dir.x && newDir.y === -dir.y) return;
+      if (nextDir.x !== newDir.x || nextDir.y !== newDir.y) playMove();
+      nextDir = newDir;
+    }
+
     document.addEventListener('keydown', e => {
       resumeAudio();
       if (e.key === ' ' || e.key === 'Enter') {
-        if (state === 'menu') return;          // buttons handle menu
+        if (state === 'menu') return;
         if (state !== 'running') startMode(gameMode);
         return;
       }
       if (state !== 'running') return;
       const newDir = KEY_MAP[e.key];
       if (!newDir) return;
-      if (newDir.x === -dir.x && newDir.y === -dir.y) return;
-      if (nextDir.x !== newDir.x || nextDir.y !== newDir.y) playMove();
-      nextDir = newDir;
+      applyDir(newDir);
       e.preventDefault();
+    });
+
+    // ── Swipe ─────────────────────────────────────────────────
+    let touchX = null, touchY = null;
+    const canvasWrap = document.querySelector('[style*="position:relative"]');
+
+    canvasWrap.addEventListener('touchstart', e => {
+      resumeAudio();
+      touchX = e.touches[0].clientX;
+      touchY = e.touches[0].clientY;
+      e.preventDefault();
+    }, { passive: false });
+
+    canvasWrap.addEventListener('touchend', e => {
+      if (touchX === null) return;
+      const dx = e.changedTouches[0].clientX - touchX;
+      const dy = e.changedTouches[0].clientY - touchY;
+      touchX = touchY = null;
+      if (Math.abs(dx) < 15 && Math.abs(dy) < 15) return;
+      const newDir = Math.abs(dx) > Math.abs(dy)
+        ? (dx > 0 ? {x:1,y:0} : {x:-1,y:0})
+        : (dy > 0 ? {x:0,y:1} : {x:0,y:-1});
+      applyDir(newDir);
+    }, { passive: false });
+
+    // ── D-pad ─────────────────────────────────────────────────
+    const DPAD_MAP = { 'd-up': {x:0,y:-1}, 'd-down': {x:0,y:1}, 'd-left': {x:-1,y:0}, 'd-right': {x:1,y:0} };
+
+    document.querySelectorAll('#dpad button').forEach(btn => {
+      btn.addEventListener('touchstart', e => {
+        resumeAudio();
+        applyDir(DPAD_MAP[btn.id]);
+        e.preventDefault();
+      }, { passive: false });
+      btn.addEventListener('mousedown', () => {
+        resumeAudio();
+        applyDir(DPAD_MAP[btn.id]);
+      });
     });
 
     // ── Boot ─────────────────────────────────────────────────
