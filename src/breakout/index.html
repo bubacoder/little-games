@@ -17,6 +17,11 @@ body {
 canvas {
     display:block;
     box-shadow:0 0 60px rgba(0,200,255,0.5), 0 0 120px rgba(0,100,255,0.25);
+    max-width:100vw;
+    max-height:100vh;
+    width:auto;
+    height:auto;
+    touch-action:none;
 }
 </style>
 </head>
@@ -131,6 +136,23 @@ document.addEventListener('keydown', e => {
 });
 document.addEventListener('keyup', e => { keys[e.key] = false; });
 
+let pointerPaddleX = null;
+
+function pointerToLogicalX(clientX) {
+    const rect = C.getBoundingClientRect();
+    return (clientX - rect.left) * (W / rect.width);
+}
+
+C.addEventListener('pointerdown', e => {
+    pointerPaddleX = pointerToLogicalX(e.clientX);
+    act();
+});
+C.addEventListener('pointermove', e => {
+    if (pointerPaddleX !== null) pointerPaddleX = pointerToLogicalX(e.clientX);
+});
+C.addEventListener('pointerup', e => { pointerPaddleX = null; });
+C.addEventListener('pointercancel', e => { pointerPaddleX = null; });
+
 function act() {
     AC.resume();
     if (state === 'start') { state = 'play'; }
@@ -168,6 +190,7 @@ function update() {
     // Paddle
     if (keys['ArrowLeft'])  paddle.x -= 11;
     if (keys['ArrowRight']) paddle.x += 11;
+    if (pointerPaddleX !== null) paddle.x = pointerPaddleX - paddle.w / 2;
     paddle.x = Math.max(0, Math.min(W - paddle.w, paddle.x));
     if (paddle.glow > 0) paddle.glow -= 0.08;
 
@@ -497,23 +520,23 @@ function frame() {
 
     if (state === 'start') {
         drawOverlay('BREAKOUT', [
-            'Nyomj ENTER-t vagy SZOKOZ-t a jatekhoz',
-            'Bal / Jobb nyil  →  lapat vezerlese',
+            'Koppints / ENTER / SZOKOZ a jatekhoz',
+            'Húzd az ujjad, egeret vagy nyilakat  →  lapat vezerlese',
         ]);
     } else if (state === 'dead') {
         drawOverlay('ELETVESZTES!', [
-            'Maradt: ' + '♥'.repeat(lives) + '  —  ENTER a folytatáshoz',
+            'Maradt: ' + '♥'.repeat(lives) + '  —  koppints / ENTER a folytatáshoz',
             'Pontszam: ' + score,
         ], '#ff4466');
     } else if (state === 'levelup') {
         drawOverlay(level + '. SZINT KESZ!', [
-            'ENTER vagy SZOKOZ a folytatáshoz',
+            'Koppints / ENTER / SZOKOZ a folytatáshoz',
             'Pontszam: ' + score,
         ], '#ffcc00');
     } else if (state === 'over') {
         drawOverlay('JATEK VEGE', [
             'Vegso pontszam: ' + score,
-            'Legjobb: ' + hiScore + '  —  ENTER az ujrakezdéshez',
+            'Legjobb: ' + hiScore + '  —  koppints / ENTER az ujrakezdéshez',
         ], '#ff2255');
     }
 
