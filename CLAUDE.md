@@ -43,6 +43,10 @@ Ezek **erős ajánlások** – indokolt esetben el lehet térni tőlük, de az e
 5. **Betűtípusok**: Google Fonts CDN ajánlott; egyéb külső font kerülendő.
 6. **Külső könyvtárak**: CDN-ről töltve ajánlott (pl. Three.js, MediaPipe). Lokális vendor mappa nem szükséges.
 7. Minden játék legyen **önálló `src/<játéknév>/index.html`** fájlban (kis fájlok esetén single-file megközelítés).
+8. **Mobil támogatás – KÖTELEZŐ.** Minden játéknak futnia és jól játszhatónak kell lennie mobil böngészőben is:
+   touch vezérlés (gombok / D-pad / swipe / joystick, a billentyűzet helyett vagy mellett), reszponzív
+   elrendezés és méretezés (ne lógjon ki a képernyőről, ne kelljen vízszintesen scrollozni), és megfelelő
+   `viewport` meta tag. Új játék létrehozásakor vagy meglévő módosításakor ezt mindig ellenőrizd.
 
 **Új technológia behozható**, ha az adott játékhoz jobban illik – pl. SVG animáció, WebGL shader, stb.
 
