@@ -2,6 +2,7 @@
 <html lang="hu">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Snake</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -45,8 +46,52 @@
       border-radius: 8px;
       box-shadow: 0 0 40px #9b5de540, 0 0 80px #00f5d420;
       border: 2px solid #333;
+      touch-action: none;
     }
-    #canvas { display: block; border-radius: 6px; }
+    #canvas { display: block; border-radius: 6px; touch-action: none; }
+
+    /* ── D-pads (touch) ── */
+    #dpads {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      margin-top: 14px;
+      width: 100%;
+    }
+    #dpads.hidden { display: none; }
+    .dpad {
+      display: grid;
+      grid-template-columns: repeat(3, 54px);
+      grid-template-rows: repeat(2, 54px);
+      gap: 6px;
+      user-select: none;
+    }
+    .dpad button {
+      background: rgba(255,255,255,0.06);
+      border: 2px solid #555;
+      color: #eee;
+      font-size: 1.4rem;
+      border-radius: 8px;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: background 0.1s, box-shadow 0.1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .dpad button:active { background: rgba(255,255,255,0.18); }
+    .dpad.p1 button { border-color: #00f5d480; color: #00f5d4; }
+    .dpad.p1 button:active { box-shadow: 0 0 14px #00f5d4; }
+    .dpad.p2 button { border-color: #f15bb580; color: #f15bb5; }
+    .dpad.p2 button:active { box-shadow: 0 0 14px #f15bb5; }
+    .dpad .d-up    { grid-column: 2; grid-row: 1; }
+    .dpad .d-left  { grid-column: 1; grid-row: 2; }
+    .dpad .d-down  { grid-column: 2; grid-row: 2; }
+    .dpad .d-right { grid-column: 3; grid-row: 2; }
+
+    @media (hover: hover) and (pointer: fine) and (min-width: 700px) {
+      #dpads { display: none; }
+    }
 
     #info {
       margin-top: 12px;
@@ -220,6 +265,21 @@
   <canvas id="canvas"></canvas>
 </div>
 
+<div id="dpads" class="hidden">
+  <div class="dpad p1" id="dpad1">
+    <button class="d-up">▲</button>
+    <button class="d-left">◄</button>
+    <button class="d-down">▼</button>
+    <button class="d-right">►</button>
+  </div>
+  <div class="dpad p2" id="dpad2">
+    <button class="d-up">▲</button>
+    <button class="d-left">◄</button>
+    <button class="d-down">▼</button>
+    <button class="d-right">►</button>
+  </div>
+</div>
+
 <div id="info">
   <span id="p1info" class="tag p1info"></span>
   <span id="p2info" class="tag p2info"></span>
@@ -278,7 +338,12 @@
 
 <script>
 // ── Canvas ────────────────────────────────────────────────────────────────────
-const COLS = 40, ROWS = 30, CELL = 18;
+const COLS = 40, ROWS = 30;
+const CELL = (function() {
+  const availW = window.innerWidth - 16;
+  const availH = window.innerHeight * 0.6;
+  return Math.min(18, Math.max(6, Math.floor(Math.min(availW / COLS, availH / ROWS))));
+})();
 const canvas = document.getElementById('canvas');
 const ctx    = canvas.getContext('2d');
 canvas.width  = COLS * CELL;
@@ -294,6 +359,8 @@ const p1ScoreEl  = document.getElementById('p1score');
 const p2ScoreEl  = document.getElementById('p2score');
 const p1InfoEl   = document.getElementById('p1info');
 const p2InfoEl   = document.getElementById('p2info');
+const dpadsEl    = document.getElementById('dpads');
+const dpad2El    = document.getElementById('dpad2');
 
 // ── Audio ─────────────────────────────────────────────────────────────────────
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -351,12 +418,14 @@ function initGame() {
 }
 
 function updateUI() {
-  if (!gameMode) { p1ScoreEl.textContent = ''; p2ScoreEl.textContent = ''; return; }
+  if (!gameMode) { p1ScoreEl.textContent = ''; p2ScoreEl.textContent = ''; dpadsEl.classList.add('hidden'); return; }
   p1ScoreEl.textContent = `▶ ${gameMode === 'single' ? 'Játékos' : 'J1 (WASD)'}: ${score1}`;
   p2ScoreEl.textContent = `▶ ${gameMode === 'single' ? 'MI' : 'J2 (↑↓←→)'}: ${score2}`;
   p1InfoEl.textContent = gameMode === 'single' ? 'Irányítás: WASD vagy ↑↓←→' : 'Játékos 1: W A S D';
   p2InfoEl.textContent = gameMode === 'single' ? 'Ellenfél: Mesterséges Intelligencia' : 'Játékos 2: ↑ ↓ ← →';
   p2InfoEl.style.display = 'inline-block';
+  dpadsEl.classList.remove('hidden');
+  dpad2El.style.display = gameMode === 'multi' ? 'grid' : 'none';
 }
 
 function spawnFood() {
@@ -679,28 +748,60 @@ document.addEventListener('keydown', e => {
 
   // Player 1: WASD
   switch (e.key.toLowerCase()) {
-    case 'w': if (dir1.y!==1)  nextDir1={x:0,y:-1}; break;
-    case 's': if (dir1.y!==-1) nextDir1={x:0,y:1};  break;
-    case 'a': if (dir1.x!==1)  nextDir1={x:-1,y:0}; break;
-    case 'd': if (dir1.x!==-1) nextDir1={x:1,y:0};  break;
+    case 'w': applyDir1({x:0,y:-1}); break;
+    case 's': applyDir1({x:0,y:1});  break;
+    case 'a': applyDir1({x:-1,y:0}); break;
+    case 'd': applyDir1({x:1,y:0});  break;
   }
   // Player 1 (single mode) also arrow keys; Player 2 (multi) arrow keys
   if (gameMode === 'single') {
     switch (e.key) {
-      case 'ArrowUp':    if (dir1.y!==1)  nextDir1={x:0,y:-1}; break;
-      case 'ArrowDown':  if (dir1.y!==-1) nextDir1={x:0,y:1};  break;
-      case 'ArrowLeft':  if (dir1.x!==1)  nextDir1={x:-1,y:0}; break;
-      case 'ArrowRight': if (dir1.x!==-1) nextDir1={x:1,y:0};  break;
+      case 'ArrowUp':    applyDir1({x:0,y:-1}); break;
+      case 'ArrowDown':  applyDir1({x:0,y:1});  break;
+      case 'ArrowLeft':  applyDir1({x:-1,y:0}); break;
+      case 'ArrowRight': applyDir1({x:1,y:0});  break;
     }
   } else {
     switch (e.key) {
-      case 'ArrowUp':    if (dir2.y!==1)  nextDir2={x:0,y:-1}; break;
-      case 'ArrowDown':  if (dir2.y!==-1) nextDir2={x:0,y:1};  break;
-      case 'ArrowLeft':  if (dir2.x!==1)  nextDir2={x:-1,y:0}; break;
-      case 'ArrowRight': if (dir2.x!==-1) nextDir2={x:1,y:0};  break;
+      case 'ArrowUp':    applyDir2({x:0,y:-1}); break;
+      case 'ArrowDown':  applyDir2({x:0,y:1});  break;
+      case 'ArrowLeft':  applyDir2({x:-1,y:0}); break;
+      case 'ArrowRight': applyDir2({x:1,y:0});  break;
     }
   }
 });
+
+// ── Direction helpers (shared by keyboard + touch) ───────────────────────────
+function applyDir1(d) {
+  if (!gameRunning) return;
+  if (dir1.x === -d.x && dir1.y === -d.y) return;
+  nextDir1 = d;
+}
+function applyDir2(d) {
+  if (!gameRunning || gameMode === 'single') return;
+  if (dir2.x === -d.x && dir2.y === -d.y) return;
+  nextDir2 = d;
+}
+
+// ── Touch D-pads ──────────────────────────────────────────────────────────────
+const DPAD_MAP = { 'd-up': {x:0,y:-1}, 'd-down': {x:0,y:1}, 'd-left': {x:-1,y:0}, 'd-right': {x:1,y:0} };
+
+function wireDpad(dpadEl, applyFn) {
+  dpadEl.querySelectorAll('button').forEach(btn => {
+    const dir = DPAD_MAP[btn.className];
+    btn.addEventListener('touchstart', e => {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      applyFn(dir);
+      e.preventDefault();
+    }, { passive: false });
+    btn.addEventListener('mousedown', () => {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      applyFn(dir);
+    });
+  });
+}
+wireDpad(document.getElementById('dpad1'), applyDir1);
+wireDpad(document.getElementById('dpad2'), applyDir2);
 
 // ── Menu keyboard navigation ──────────────────────────────────────────────────
 const modeCards = Array.from(document.querySelectorAll('.mode-card'));
