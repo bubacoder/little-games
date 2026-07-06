@@ -20,6 +20,20 @@
 
 const GAMES = [
   {
+    id: "szo-memoria",
+    emoji: "🃏",
+    thumb: "linear-gradient(135deg, #2d1b4e 0%, #7b4397 55%, #d16ba5 100%)",
+    hu: {
+      title: "Szó-Memória",
+      desc: "Kártya-felfordítós memóriajáték nyelvtanuláshoz! Párosítsd a magyar és angol szavakat. Sok témakör (állatok, ételek, igék…), 3 nehézség és angol kiejtés hanggal.",
+    },
+    en: {
+      title: "Word Memory",
+      desc: "A card-flipping memory game for learning English! Match Hungarian and English words. Many topics (animals, food, verbs…), 3 difficulty levels and spoken pronunciation.",
+    },
+    tags: ["DOM/CSS", "Web Audio", "Speech", "Educational"],
+  },
+  {
     id: "parallax",
     emoji: "🪟",
     thumb: "linear-gradient(135deg, #0a0a14 0%, #1a1040 50%, #0a1428 100%)",
