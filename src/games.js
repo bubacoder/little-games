@@ -20,6 +20,20 @@
 
 const GAMES = [
   {
+    id: "tojas-labirintus",
+    emoji: "🐦",
+    thumb: "linear-gradient(135deg, #12181a 0%, #1f3a24 50%, #3a5a3f 100%)",
+    hu: {
+      title: "Tojáslabirintus",
+      desc: "Vezesd a gazdát a bokros labirintusban, szedd a fürjek tojásait a vödrödbe, és vidd haza kikelteni! Vigyázz az alvó-ébredő rókára, mert ellopja a vödröd – kapd el, hogy visszaszerezd!",
+    },
+    en: {
+      title: "Egg Labyrinth",
+      desc: "Guide the farmer through the bushy maze, gather quail eggs into your bucket and carry them home to hatch! Beware the sleeping-waking fox — it steals your bucket, so catch it to get it back!",
+    },
+    tags: ["Canvas", "Web Audio", "Maze"],
+  },
+  {
     id: "szo-memoria",
     emoji: "🃏",
     thumb: "linear-gradient(135deg, #2d1b4e 0%, #7b4397 55%, #d16ba5 100%)",
