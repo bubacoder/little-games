@@ -5,7 +5,7 @@
  *   1. Másold le az alábbi objektum-sablont
  *   2. Töltsd ki: id, emoji, thumb (CSS gradient), hu + en mezők, tags
  *   3. Mentsd el – az index.html automatikusan megjelenik
- *   4. Frissítsd a CLAUDE.md „Meglévő játékok" táblázatát is
+ *   4. Frissítsd az AGENTS.md „Meglévő játékok" táblázatát is
  *
  * Mezők:
  *   id       – könyvtár neve (src/<id>/)

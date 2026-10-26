@@ -16,6 +16,31 @@ Megnyitja a böngészőt a `http://localhost:8765` címen. Opcionálisan megadha
 
 Windows rendszeren: `start.cmd`
 
+## Agentek (Claude Code / OpenCode)
+
+A repó Claude Code-dal és OpenCode-dal is használható. A projekt szabályai az `AGENTS.md`-ben
+élnek – ezt a Claude Code (v2.1.277+) és az OpenCode is automatikusan betölti.
+
+OpenCode indítás a repó gyökeréből:
+
+```bash
+opencode
+```
+
+Windows-on dupla kattintással: `opencode.cmd`.
+
+Amit az OpenCode automatikusan innen használ:
+
+- `AGENTS.md` – közös projektinstrukció (a korábbi `CLAUDE.md` helyén).
+- `.claude/skills/` – a négy skill (game-design, playtest, add-game, hang-muhely)
+  változtatás nélkül elérhető, nem kell duplikálni.
+- `.opencode/commands/` – `/playtest <játék>`, `/validate`, `/add-game <játék>`.
+- `opencode.jsonc` – engedélyek (`git`, `python`, `node`, `uv run` engedélyezve,
+  `git push` jóváhagyást kér, minden más rákérdez).
+
+> Régebbi Claude Code (v2.1.277 előtt) esetén készíts egy `CLAUDE.md` fájlt egyetlen
+> `@AGENTS.md` sorral – így a szabályok ott is betöltődnek.
+
 ## Struktúra
 
 ```

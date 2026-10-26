@@ -1,0 +1,6 @@
+# Gépfüggő, helyi agent-beállítások (Claude Code / OpenCode)
+.claude/settings.local.json
+
+# Python cache (playtest / validátor)
+__pycache__/
+*.pyc

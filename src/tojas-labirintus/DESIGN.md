@@ -62,6 +62,6 @@ de bármikor felébredhet. A ház körül a róka soha nem tud elkapni – ez a 
 
 ## Változásnapló
 - 2026-07-11: első terv elkészült (fürjek, nem tyúkok; a róka nem mehet be a házba)
-- 2026-07-11: játék elkészült (index.html) és felvéve a gyűjteménybe (games.js, CLAUDE.md)
+- 2026-07-11: játék elkészült (index.html) és felvéve a gyűjteménybe (games.js, AGENTS.md)
 - 2026-07-11: szüneteltetés (P/Esc/gomb); nagyobb vödörkapacitás (10/8/7) + „tele a vödör" jelzés (banner, villogó HUD, ❗ a gazda felett); nagyobb, képernyőt kitöltő pálya (17×13, magasság-alapú méretezés)
 - 2026-07-11: irányítás lépkedősre váltva (1 gombnyomás = 1 kocka, nyomva tartva ismétel); róka kissé lassabb (foxSpeed 3.0/4.0 → 2.4/3.2, végtelen mód cap 6.0 → 4.5)

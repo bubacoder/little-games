@@ -7,7 +7,7 @@ description: Vezetett játéktervezési beszélgetés a little-games repóhoz. H
 
 Cél: közösen kitalálni és letisztázni egy játékötletet, mielőtt egy sor kód készülne.
 Ez a skill NEM ír kódot és NEM hoz létre `index.html`-t — az implementáció külön lépés,
-a CLAUDE.md „Új játék hozzáadásakor" folyamata szerint.
+a AGENTS.md „Új játék hozzáadásakor" folyamata szerint.
 
 ## Hangnem
 
@@ -86,7 +86,7 @@ Menj végig a listán; ami elbukik, azt közösen javítsátok, mielőtt tovább
 
 ### 5. Technológia-illesztés
 
-A CLAUDE.md irányelvei szerint javasolj technológiát (HTML5 Canvas / Three.js / Web Audio API,
+A AGENTS.md irányelvei szerint javasolj technológiát (HTML5 Canvas / Three.js / Web Audio API,
 statikus fájlok, nincs build). Csak jelezd, melyik illik és miért — ne kezdj kódolni.
 
 ### 6. DESIGN.md mentése
@@ -122,4 +122,4 @@ Hozd létre a `src/<játéknév>/` könyvtárat, és mentsd bele **csak** a `DES
 - <ÉÉÉÉ-HH-NN>: első terv elkészült
 ```
 
-Végül foglald össze a tervet a beszélgetésben, és a CLAUDE.md szerint adj 2-3 oktató tippet.
+Végül foglald össze a tervet a beszélgetésben, és a AGENTS.md szerint adj 2-3 oktató tippet.

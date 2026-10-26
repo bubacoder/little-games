@@ -1,6 +1,6 @@
 ---
 name: add-game
-description: Kész játék felvétele a little-games gyűjteménybe és a repó konzisztenciájának ellenőrzése. Használd, amikor egy új játék elkészült és be kell kötni (games.js bejegyzés, CLAUDE.md táblázat), vagy amikor ellenőrizni kell, hogy minden játék rendben szerepel-e mindenhol („vedd fel a játékot", „add hozzá a listához", „ellenőrizd a games.js-t").
+description: Kész játék felvétele a little-games gyűjteménybe és a repó konzisztenciájának ellenőrzése. Használd, amikor egy új játék elkészült és be kell kötni (games.js bejegyzés, AGENTS.md táblázat), vagy amikor ellenőrizni kell, hogy minden játék rendben szerepel-e mindenhol („vedd fel a játékot", „add hozzá a listához", „ellenőrizd a games.js-t").
 ---
 
 # Add-game – játék felvétele a gyűjteménybe
@@ -35,9 +35,9 @@ Szabályok:
 - A hu és en szöveg tartalmilag egyezzen, ne gépi tükörfordítás legyen.
 - A `tags` a repóban bevett neveket használja: `Canvas`, `Three.js`, `Web Audio`, stb.
 
-### 2. CLAUDE.md táblázat
+### 2. AGENTS.md táblázat
 
-Vedd fel az új sort a CLAUDE.md „Meglévő játékok" táblázatába
+Vedd fel az új sort a AGENTS.md „Meglévő játékok" táblázatába
 (könyvtár, cím, technológia).
 
 ### 3. DESIGN.md
@@ -55,7 +55,7 @@ uv run --with json5 .claude/skills/add-game/scripts/validate_games.py
 ```
 
 Ellenőrzi a kötelező mezőket, a duplikált id-kat, a könyvtárak meglétét,
-a games.js-ből kimaradt könyvtárakat és a CLAUDE.md táblázatot.
+a games.js-ből kimaradt könyvtárakat és a AGENTS.md táblázatot.
 Minden ❌ hibát javíts ki; a ⚠️ figyelmeztetéseket mérlegeld.
 
 ### 5. Vizuális ellenőrzés (ajánlott)

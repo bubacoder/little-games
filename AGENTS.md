@@ -1,4 +1,4 @@
-# CLAUDE.md – little-games repó
+# AGENTS.md – little-games repó
 
 ## A fejlesztőről
 Felső tagozatos általános iskolás lány, aki nagyon szereti az állatokat és a matematikát.
@@ -37,11 +37,26 @@ Nyelvváltó: 🇭🇺/🇬🇧 zászló gombok a fejlécben; választott nyelv 
 |---|---|
 | `game-design` | Új játékötlet vezetett tervezése kódolás előtt → `src/<játék>/DESIGN.md` |
 | `playtest` | Játék futtatása headless böngészőben: képernyőképek + JS-hibák |
-| `add-game` | Kész játék bekötése: games.js + CLAUDE.md táblázat + validátor |
+| `add-game` | Kész játék bekötése: games.js + AGENTS.md táblázat + validátor |
 | `hang-muhely` | Web Audio hangeffekt-receptek (kódból generált hangok) |
 
 A playtest és add-game scriptekhez `uv` kell – telepítés: README „Fejlesztői eszközök".
 Játékkód változtatása után futtasd a `playtest` skillt; új játék bekötésekor az `add-game`-et.
+
+### Használat agenttel
+
+Ez a fájl a **közös instrukció** Claude Code-hoz (v2.1.277+) és OpenCode-hoz – nem kell külön
+`CLAUDE.md`. A `.claude/skills/` mappát mindkettő automatikusan felismeri, ne duplikáld.
+
+OpenCode-specifikus fájlok:
+
+| Fájl | Mire való |
+|---|---|
+| `opencode.jsonc` | Jogosultságok: `git`, `python`, `node`, `uv run` engedélyezve; `git push` jóváhagyást kér; minden más rákérdez |
+| `.opencode/commands/` | `/playtest <játék>`, `/validate`, `/add-game <játék>` |
+| `opencode.cmd` | Windows indító (maximalizált ablak) |
+
+A Claude Code helyi, gépfüggő beállításai (`.claude/settings.local.json`) nincsenek verziózva.
 
 ---
 
@@ -80,7 +95,7 @@ Ezek **erős ajánlások** – indokolt esetben el lehet térni tőlük, de az e
    - `en.title` / `en.desc` – angol cím és leírás
    - `tags` – technológiai tagek tömbje (pl. `["Canvas", "Web Audio"]`)
    - Az `src/index.html` **nem igényel módosítást** – automatikusan megjelenik a kártya.
-4. **Frissítsd ezt a `CLAUDE.md` fájlt**: add hozzá az új játékot a „Meglévő játékok" táblázathoz (könyvtár, cím, technológia).
+4. **Frissítsd ezt az `AGENTS.md` fájlt**: add hozzá az új játékot a „Meglévő játékok" táblázathoz (könyvtár, cím, technológia).
 5. **Technológia-választás**: előnyben részesítsd azokat a technológiákat, amiket más játékok már használnak (Canvas, Three.js, Web Audio API). Új technológia behozható, ha indokolt – indokold röviden.
 
 ---
