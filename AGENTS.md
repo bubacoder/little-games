@@ -27,6 +27,7 @@ Indítás: `./start.sh` (Python http.server, port 8765).
 | src/repulo-3d/        | Repülő Madár 3D            | Three.js, Web Audio      |
 | src/szo-memoria/      | Szó-Memória                | DOM/CSS, Web Audio, Web Speech |
 | src/tojas-labirintus/ | Tojáslabirintus            | HTML5 Canvas, Web Audio  |
+| src/kurt-kaland/      | Kürt Kaland               | HTML5 Canvas, Web Audio  |
 
 Landing page: `src/index.html` – kártya-rács, sötét téma, linkel az összes játékra.
 Játék-adatok: `src/games.js` – kétnyelvű (hu/en) adatfájl, innen tölti be az index a kártyákat.

@@ -20,6 +20,20 @@
 
 const GAMES = [
   {
+    id: "kurt-kaland",
+    emoji: "🎺",
+    thumb: "linear-gradient(135deg, #211d40 0%, #57496f 55%, #877080 100%)",
+    hu: {
+      title: "Kürt Kaland",
+      desc: "Repítsd fel a nyuszit a saját kürthangoddal! Rövid, ismételt és kitartott hangok, állítható nehézség és kedves koncertjutalmak. Mikrofonos gyakorlás vagy érintéses demó.",
+    },
+    en: {
+      title: "Horn Adventure",
+      desc: "Help a little bunny leap with your horn! Practise short, repeated and sustained notes with adjustable difficulty and lovely concert rewards. Use your microphone or try the touch demo.",
+    },
+    tags: ["Canvas", "Web Audio", "Educational"],
+  },
+  {
     id: "tojas-labirintus",
     emoji: "🐦",
     thumb: "linear-gradient(135deg, #12181a 0%, #1f3a24 50%, #3a5a3f 100%)",

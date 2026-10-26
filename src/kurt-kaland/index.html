@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="hu">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#211d40">
+  <title>Kürt Kaland – Hangjegyliget</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <header>
+      <a class="back" href="../">← Játékok</a>
+      <span class="eyebrow">EGY KIS ZENE, EGY NAGY KALAND</span>
+      <span class="badge">🎺 B-kürt · B♭</span>
+    </header>
+    <section class="heading">
+      <a class="play-back back" href="../">← Játékok</a>
+      <div><h1>Kürt <span>Kaland</span><i>♫</i></h1><p>Fújj egy hangot. Repítsd fel a nyuszit!</p></div>
+      <button id="settings-toggle" class="secondary" aria-expanded="false" aria-controls="settings">⚙ Beállítások</button>
+    </section>
+
+    <section id="settings" class="panel" role="dialog" aria-modal="true" aria-label="Gyakorlás beállításai" hidden>
+      <div class="settings-page">
+      <div class="settings-header">
+      <h2>A ti kis gyakorlótermetek 🎼</h2>
+      <button id="settings-dismiss" class="secondary settings-dismiss" aria-label="Beállítások bezárása">✕ Bezárás</button>
+      </div>
+      <p class="settings-intro">Csak már tanult, kényelmes hangokat válasszatok. A pálya és a hangkészlet változásai a következő körben lépnek életbe.</p>
+      <div class="settings-columns">
+      <section class="settings-card" id="practice-settings">
+      <h3>🐾 Pálya és nehézség</h3>
+      <div class="settings-grid">
+        <label>Pálya<select id="mode"><option value="mixed">Hangjegyliget · vegyes</option><option value="short">Pöttyös rét · rövid hangok</option><option value="repeat">Virágpárnák · ismétlések</option><option value="hold">Felhőlift · kitartás</option></select></label>
+        <label>Sebesség<select id="speed"><option value="0.5">Nagyon ráérős · 0,5×</option><option value="0.65" selected>Nyuszis séta · 0,65×</option><option value="1">Kocogás · 1×</option><option value="1.5">Szökdécselés · 1,5×</option></select></label>
+        <label>Hányféle hang?<select id="note-count"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
+        <label>Pontosság<select id="tolerance"><option value="50">Megengedő · ±50 cent</option><option value="40">Közepes · ±40 cent</option><option value="25">Pontos · ±25 cent</option></select></label>
+        <label>Hosszú hang<select id="hold"><option value="0.5">0,5 másodperc</option><option value="1" selected>1 másodperc</option><option value="2">2 másodperc</option><option value="3">3 másodperc</option><option value="4">4 másodperc</option></select></label>
+        <label>Pihenő és felkészülés együtt<select id="rest"><option value="3" selected>3 másodperc</option><option value="5">5 másodperc</option><option value="8">8 másodperc</option></select></label>
+        <label>Kör hossza<select id="length"><option value="6">6 feladat · rövid</option><option value="9" selected>9 feladat · kb. 90 mp</option><option value="12">12 feladat · hosszabb</option></select></label>
+        <label>Időzítési ablak<select id="timing"><option value="0.65">Kényelmes · ±650 ms</option><option value="0.35">Gyakorlott · ±350 ms</option></select></label>
+        <label class="check"><input type="checkbox" id="helper" checked> Segítő felhő · a pálya megvár</label>
+        <label class="check"><input type="checkbox" id="reduced"> Kevesebb animáció</label>
+        <label>Halk hangok küszöbe<input id="threshold" type="range" min="0.003" max="0.08" step="0.001" value="0.008"><small>Balra: érzékenyebb mikrofon</small></label>
+      </div>
+      <section id="mic-tools" class="input-panel panel">
+        <div class="input-title"><h3 id="input-title">🎤 Mikrofon beállítása</h3></div>
+        <div class="mic-actions"><button id="mic-enable" class="secondary">🎤 Mikrofon bekapcsolása</button><button id="noise" class="quiet" disabled>Csend / zaj bemérése</button><button id="mic-off" class="quiet" disabled>Mikrofon kikapcsolása</button></div>
+        <p id="mic-status" role="status">Mikrofonhoz HTTPS vagy localhost szükséges. Nem rögzítünk és nem töltünk fel hangot. A hangerőért nem jár több pont.</p>
+      </section>
+      </section>
+      <section class="settings-card" id="pitch-settings">
+      <h3>🎼 Gyakorolt hangok <span class="badge">alap: egyedi bemérés</span></h3>
+      <p class="notes-intro">A nevek a <strong>megszólaló hangot</strong> jelzik (B♭3, C4); a szám az oktáv. Saját, tanártól ismert név is megadható. Az első N hang kerül a pályára; a nyíllal átrendezhetők.</p>
+      <div id="note-editor"></div>
+      <p id="capture-status" role="status">A példahangok demóhoz valók. Mikrofonos játékhoz hagyjátok jóvá a saját hangjaitokat.</p>
+      <details><summary>Segítség a hangok megadásához</summary>
+        <p>A hangnév szabad felirat: azt írjátok be, amit a gyermek ismer. A Hz mező mindig a ténylegesen megszólaló hangot jelenti. A „Bemérés” egy stabil hangot javasol; a „Jóváhagyom” gombbal lesz végleges.</p>
+        <p>A B-kürt típusa önmagában nem dönti el, mi szerepel a gyermek kottájában. Beméréskor az automatikus név frissül, a saját név megmarad. Az üres név visszaállítja az automatikus elnevezést.</p>
+        <p>Ha kottából számoltok, ezt felnőtt/tanár ellenőrizze:</p>
+        <div class="settings-grid"><label>Írott hang (MIDI-szám)<input id="written-midi" type="number" value="60" min="36" max="96"></label><label>Lejegyzés<select id="transpose"><option value="0">Koncert / valós hang</option><option value="-7">F-kürt-szólam · −7 félhang</option><option value="-2">B♭-szólam · −2 félhang</option><option value="-14">B♭-szólam · −14 félhang</option></select></label></div>
+        <p id="conversion"></p><p>C4 = MIDI 60. Az oktávviszonyt a tanárral válasszátok ki; B-kürtön is használhatnak F-szólamot.</p>
+      </details>
+      </section>
+      </div>
+      <div class="settings-footer"><span>A beállításokat automatikusan mentjük.</span><button id="settings-close">Kész, irány a liget! →</button></div>
+      </div>
+    </section>
+
+    <section class="game-shell" aria-label="Hangjegyliget játéktér">
+      <div class="scene-stage">
+      <div class="scene-top"><span id="world-label">HANGJEGYLIGET</span><span id="score">☆ 0 csillag</span></div>
+      <canvas id="scene" aria-label="Kürtjáték: a nyuszi hangokkal ugrik és lebeg"></canvas>
+      <div id="welcome" class="welcome">
+        <span class="little-label">ÜDV A HANGJEGYLIGETBEN!</span>
+        <h2>A koncert rád vár.</h2>
+        <p>Rövid hangra ugrunk, hosszú hanggal repülünk.<br>Apró lépések, nagy örömök. 🐾</p>
+        <button id="demo-start">Kipróbálom hangszer nélkül →</button>
+        <button id="mic-start" class="secondary">🎤 Gyakorlás kürttel</button>
+        <small>A hangod csak itt, a böngészőben marad.</small>
+      </div>
+      <div id="result" class="welcome" hidden>
+        <span class="little-label">MEGÉRKEZTÉL A KONCERTRE!</span><h2>Szép volt, kis zenész! 🌟</h2>
+        <p id="result-text"></p><p id="sticker"></p><button id="again">Még egy kaland</button><small>Előbb pihenj egy kicsit, és vegyél nyugodtan levegőt!</small>
+      </div>
+      <div class="scene-bottom"><span>✦ Fújd életre a zenét</span><span id="round-label">Nincs sietség.</span></div>
+      </div>
+      <section id="control-dock" class="control-dock" aria-label="Feladat és vezérlés" hidden>
+        <div class="control-heading">
+          <div class="task-icon" id="task-icon">♫</div>
+          <div class="task-info"><span class="eyebrow" id="phase">A TE TEMPÓDBAN</span><h2 id="task-label">Egy hanggal is kezdheted.</h2></div>
+          <span class="badge" id="input-mode">DEMÓ</span>
+          <div class="actions"><button id="pause" class="secondary" disabled>Szünet</button><button id="finish" class="quiet" disabled>Befejezem</button></div>
+        </div>
+        <div class="feedback-slot">
+          <div id="wait-indicator" class="wait-indicator"><span id="wait-icon" aria-hidden="true">☕</span><strong id="wait-count">3</strong><span id="wait-label">mp múlva indul · addig pihenj</span></div>
+          <div id="progress-row" class="progress-row" hidden><div class="progress" role="progressbar" aria-label="Feladat teljesítése" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="task-progress"></div></div><strong id="progress-label">0 / 1 mp</strong></div>
+        </div>
+        <p id="hint" role="status">A nyuszi megvár. Minden kis siker számít.</p>
+        <div id="demo-controls" class="demo-controls">
+          <div id="demo-keys" class="demo-keys"></div>
+          <details id="demo-guide" class="demo-guide"><summary>⌨ Súgó</summary><p id="demo-help">Az 1–5 számbillentyűk helyettesítik a kürtöt. Egérrel vagy telefonon a hanggombot tartsd lenyomva. Rövid hang: nyomd kb. fél másodpercig, majd engedd fel. Hosszú hang: tartsd a jelzett ideig. Ismétlésnél engedd fel az egyes lenyomások között!</p></details>
+        </div>
+        <div id="live-mic" class="mic-readout" hidden><span id="pitch-readout">Mikrofon kikapcsolva</span><meter id="level" min="0" max="0.15" value="0" aria-label="Mikrofon jelszintje"></meter><span id="intonation">–</span></div>
+      </section>
+    </section>
+    <footer>🐰 Rövid gyakorlás, sok szeretettel. <span id="collection"></span><br>A játék a hangot hallja, nem a fogást. Fáradásnál tartsatok szünetet!</footer>
+  </main>
+  <script type="module" src="game.js"></script>
+</body>
+</html>
