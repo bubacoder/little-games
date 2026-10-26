@@ -3,7 +3,7 @@
 
 Ellenőrzi: kötelező mezők (id, emoji, thumb, hu/en title+desc, tags),
 duplikált id-k, létező src/<id>/ könyvtárak, index.html megléte,
-games.js-ből kimaradt könyvtárak, CLAUDE.md táblázat sorai.
+games.js-ből kimaradt könyvtárak, AGENTS.md táblázat sorai.
 
 Futtatás (a repó gyökeréből, minden platformon ugyanígy):
     uv run --with json5 .claude/skills/add-game/scripts/validate_games.py
@@ -14,6 +14,12 @@ import sys
 from pathlib import Path
 
 import json5
+
+# Windows konzol (pl. cp1250) nem tudja megjeleníteni az emoji jeleket – UTF-8-ra váltunk,
+# hogy a kimenet ne szálljon el UnicodeEncodeError-ral.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
 
 REPO = Path(__file__).resolve().parents[4]
 SRC = REPO / "src"
@@ -59,12 +65,12 @@ def main() -> int:
         if d.is_dir() and d.name not in seen:
             warns.append(f"src/{d.name}/ létezik, de nincs a games.js-ben")
 
-    claude_md = REPO / "CLAUDE.md"
-    if claude_md.exists():
-        claude = claude_md.read_text(encoding="utf-8")
+    agents_md = REPO / "AGENTS.md"
+    if agents_md.exists():
+        agents = agents_md.read_text(encoding="utf-8")
         for gid in sorted(seen):
-            if f"src/{gid}/" not in claude:
-                warns.append(f'{gid}: hiányzik a CLAUDE.md „Meglévő játékok" táblázatából')
+            if f"src/{gid}/" not in agents:
+                warns.append(f'{gid}: hiányzik az AGENTS.md „Meglévő játékok" táblázatából')
 
     print(f"games.js: {len(games)} játék ellenőrizve.")
     for e in errors:

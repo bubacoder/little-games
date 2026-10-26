@@ -22,6 +22,12 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[4]
 SRC = REPO / "src"
 
+# Windows konzol (pl. cp1250) nem tudja megjeleníteni az emoji jeleket – UTF-8-ra váltunk,
+# hogy a kimenet ne szálljon el UnicodeEncodeError-ral.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+
 
 def port_open(port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -79,7 +85,17 @@ def main() -> int:
         from playwright.sync_api import sync_playwright
 
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            try:
+                browser = p.chromium.launch(headless=True)
+            except Exception as e:
+                if "Executable doesn't exist" not in str(e):
+                    raise
+                print(
+                    "HIBA: a Playwright Chromium még nincs telepítve.\n"
+                    "Egyszeri telepítés (a repó gyökeréből):\n"
+                    "    uv run --with playwright playwright install chromium"
+                )
+                return 1
             page = browser.new_page(viewport={"width": w, "height": h})
             page.on("console", lambda m: console.append((m.type, m.text))
                     if m.type in ("error", "warning") and "favicon" not in m.text else None)
